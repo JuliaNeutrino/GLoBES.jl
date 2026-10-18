@@ -9,19 +9,32 @@ const GLB_2011_COMPATIBLE = ("chiSpectrumTilt", "chiNoSysSpectrum", "chiSpectrum
 
 is_2011_compatible(name) = name !== nothing && name in GLB_2011_COMPATIBLE
 
+const FIT_RATE_FLOOR = 1e-10   # events; below this the Poisson term is extrapolated
+
 """
     glb_likelihood(true_rate, fit_rate)
 
 Poissonian χ² contribution `2(fit - true + true*log(true/fit))`.
+
+C GLoBES returns 1e100 whenever `fit_rate <= 0`, even for empty bins
+(true = fit = 0), which ruins the χ² of any rule with such a bin and makes
+χ² jump for minimizers. Here an empty bin contributes 0, a negative fit rate
+with no observed events contributes `2|fit|`, and with observed events the
+function is continued below `FIT_RATE_FLOOR` by its second-order Taylor
+expansion: a steep but finite, smooth and convex wall.
 """
 @inline function glb_likelihood(true_rate, fit_rate)
-    res = fit_rate - true_rate
-    if fit_rate <= 0.0
-        res = 1e100
-    elseif true_rate > 0
-        res += true_rate * log(true_rate / fit_rate)
+    if true_rate <= 0.0
+        return 2.0 * abs(fit_rate)
+    elseif fit_rate >= FIT_RATE_FLOOR
+        return 2.0 * (fit_rate - true_rate + true_rate * log(true_rate / fit_rate))
     end
-    return 2.0 * res
+    f0 = FIT_RATE_FLOOR
+    d = fit_rate - f0
+    value = f0 - true_rate + true_rate * log(true_rate / f0)
+    slope = 1.0 - true_rate / f0
+    curvature = true_rate / f0^2
+    return 2.0 * (value + slope * d + 0.5 * curvature * d^2)
 end
 
 """
@@ -138,13 +151,13 @@ function glbChiSpectrumCalib(exp, rule, n_params, x, errors, user_data)
     e = STATE.experiments[exp]; r = e.rules[rule]
     n_bins = e.numofbins
     true_rates = e.rates0[rule]
-    emin, emax = e.emin, e.emax
     bg_norm_center, bg_tilt_center = r.bg_centers[1], r.bg_centers[2]
     signal_norm = 1.0 + x[1]
     bg_norm = bg_norm_center * (1.0 + x[3])
     bg_tilt = bg_tilt_center + x[4]
-    sig = glbShiftEnergyScale(x[2], e.rates1[rule], n_bins, emin, emax)
-    bg = glbShiftEnergyScale(bg_tilt, e.rates1BG[rule], n_bins, emin, emax)
+    centers, widths = e.smear_data[1].bincenter, e.smear_data[1].binsize
+    sig = shift_energy_scale(x[2], view(e.rates1[rule], 1:n_bins), centers, widths)
+    bg = shift_energy_scale(bg_tilt, view(e.rates1BG[rule], 1:n_bins), centers, widths)
     chi2 = 0.0
     for i in r.energy_window_bins[1]:r.energy_window_bins[2]
         chi2 += glb_likelihood(true_rates[i], signal_norm * sig[i] + bg_norm * bg[i])
@@ -157,27 +170,84 @@ end
 glbChiZero(exp, rule, n_params, x, errors, user_data) = 0.0
 
 """
-    glbShiftEnergyScale(b, rates_in, n_bins, emin, emax) -> rates_out
+    shift_energy_scale(b, rates, centers, widths) -> rates_out
 
-Apply an energy calibration error of relative size `b` to a binned spectrum.
+Apply an energy calibration error of relative size `b` to a binned spectrum
+with the given bin centers and widths: bin `i` of the result holds the events
+between the scaled bin edges, `F((1+b) hi[i]) - F((1+b) lo[i])`, where `F` is
+the cumulative number of events. `F` is known exactly at the bin edges and is
+interpolated in between with a monotone cubic (Fritsch-Carlson); as in C
+GLoBES, there are no events outside the binned range.
+
+This reproduces `rates` at `b = 0`, never gives negative rates, conserves the
+number of events, handles unequal bins and is smooth in `b`, except in the
+first and last bin if the spectrum does not vanish at the ends of the binned
+range (shifting then moves events out of the range, but none in). C GLoBES
+instead interpolates the rates linearly at the shifted bin centers, which
+makes χ² kinked at `b = 0` in every bin, doubles the last bin when shifting
+past the upper end, and assumes equal bins.
 """
-function glbShiftEnergyScale(b, rates_in, n_bins, emin, emax)
-    out = zeros(n_bins)
-    t0 = n_bins * emin / (emax - emin)
-    for i0 in 0:n_bins-1
-        delta = b * (i0 + t0 + 0.5) + i0
-        k = floor(Int, delta)
-        if k < -1 || k > n_bins - 1
-            out[i0+1] = 0.0
-        elseif k == -1
-            out[i0+1] = (1 + b) * rates_in[k+2] * (delta - k)
-        elseif k == n_bins - 1
-            out[i0+1] = (1 + b) * (rates_in[k+1] * (delta - k) + rates_in[k+1])
-        else
-            out[i0+1] = (1 + b) * ((rates_in[k+2] - rates_in[k+1]) * (delta - k) + rates_in[k+1])
+function shift_energy_scale(b, rates, centers, widths)
+    n = length(rates)
+    edges = [centers[1] - widths[1] / 2; centers .+ widths ./ 2]
+    cumulative = [0.0; cumsum(rates)]
+    slopes = monotone_slopes(edges, cumulative)
+    F(E) = E <= edges[1] ? 0.0 : E >= edges[end] ? cumulative[end] :
+           hermite_eval(edges, cumulative, slopes, E)
+    return [F((1 + b) * edges[i+1]) - F((1 + b) * edges[i]) for i in 1:n]
+end
+
+# Node slopes of the monotone piecewise cubic through (x, y) (Fritsch & Carlson
+# 1980, with the weighted harmonic mean of Fritsch & Butland 1984, and the
+# shape-preserving one-sided end slopes used by MATLAB's pchip).
+function monotone_slopes(x, y)
+    m = length(x)
+    h = diff(x)
+    s = diff(y) ./ h
+    slopes = zeros(m)
+    for k in 2:m-1
+        if s[k-1] * s[k] > 0
+            slopes[k] = 3(h[k-1] + h[k]) / ((2h[k] + h[k-1]) / s[k-1] + (h[k] + 2h[k-1]) / s[k])
         end
     end
-    return out
+    if m == 2
+        slopes .= s[1]
+    elseif m > 2
+        slopes[1] = end_slope(h[1], h[2], s[1], s[2])
+        slopes[m] = end_slope(h[m-1], h[m-2], s[m-1], s[m-2])
+    end
+    return slopes
+end
+
+function end_slope(h1, h2, s1, s2)
+    d = ((2h1 + h2) * s1 - h1 * s2) / (h1 + h2)
+    sign(d) != sign(s1) && return 0.0
+    sign(s1) != sign(s2) && abs(d) > abs(3s1) && return 3s1
+    return d
+end
+
+# Evaluate the cubic Hermite interpolant through (x, y) with the given node
+# slopes at x[1] <= E <= x[end]
+function hermite_eval(x, y, slopes, E)
+    k = min(searchsortedlast(x, E), length(x) - 1)
+    h = x[k+1] - x[k]
+    t = (E - x[k]) / h
+    t2 = t * t; t3 = t2 * t
+    return (2t3 - 3t2 + 1) * y[k] + (t3 - 2t2 + t) * h * slopes[k] +
+           (-2t3 + 3t2) * y[k+1] + (t3 - t2) * h * slopes[k+1]
+end
+
+"""
+    glbShiftEnergyScale(b, rates_in, n_bins, emin, emax) -> rates_out
+
+Apply an energy calibration error of relative size `b` to a spectrum of
+`n_bins` equal bins between `emin` and `emax`. See [`shift_energy_scale`](@ref)
+for the method and how it differs from C GLoBES.
+"""
+function glbShiftEnergyScale(b, rates_in, n_bins, emin, emax)
+    w = (emax - emin) / n_bins
+    centers = [emin + (i - 0.5) * w for i in 1:n_bins]
+    return shift_energy_scale(b, view(rates_in, 1:n_bins), centers, fill(w, n_bins))
 end
 
 # ---------------------------------------------------------------------------

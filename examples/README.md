@@ -35,19 +35,23 @@ Differences to the C code:
 ## Agreement with C GLoBES
 
 All outputs were compared number by number with those of the C examples
-(GLoBES 3.0.11, gcc -O2), run in the same directory:
+(GLoBES 3.0.11, gcc -O2), run in the same directory. GLoBES.jl fixes some
+problems of the C library (see `test/README.md`), so the results are not
+identical:
 
-| Example        | Largest relative difference                                  |
-|----------------|--------------------------------------------------------------|
-| `example1`     | 8e-9 (χ² with systematics only)                              |
-| `example2`     | 8e-5 (χ² with correlations)                                  |
-| `example3`     | 2e-4 at the degeneracy, 3e-4 in the χ² map around it         |
-| `example4`     | 0 (4a, 4b), 1e-5 (4c), 2e-6 (4d)                             |
-| `example5`     | 0: all roots identical to printf precision                   |
-| `example6`     | 0                                                            |
-| `example-tour` | χ² values ≤ 2e-5; minimum positions ≤ 2e-4; iteration counts differ by a few % |
+| Example        | Largest relative difference | Why                                                  |
+|----------------|-----------------------------|------------------------------------------------------|
+| `example1`     | 8e-9                        | rounding                                             |
+| `example2`     | 5e-5                        | fits stop at the minimizer tolerance                 |
+| `example3`     | 2e-3                        | fits (the degeneracy is found at slightly lower χ²)  |
+| `example4`     | 0 (4a, 4b), 3e-5 (4c), see below (4d) | fits                                       |
+| `example5`     | 4e-2                        | energy scale shift (`glbShiftEnergyScale`)           |
+| `example6`     | 7e-2                        | `Reactor1.glb` uses `chiSpectrumCalib`, i.e. the shift |
+| `example-tour` | 2e-3 in χ²                  | fits; every χ² minimum is as low as or lower than in C |
 
-The fits with correlations stop where the minimizer's relative tolerance
-(1e-5) is reached, and the last few digits of the χ² values differ at the
-1e-11 level between the two codes (libm, summation order), so minimum
-positions along flat directions and iteration counts are not bit-identical.
+In `test4d.dat`, the χ² for Δm²31 = 3e-3 differs by up to 13% at small θ13
+and is up to 44% lower at s22θ13 > 3e-4. The degeneracy search converges at
+θ13 ≈ 0 with the same χ² in both codes, but δCP is undetermined there and
+the two codes end at different values (−0.17 and 3.0). The following fits
+each start from the previous one, so C and GLoBES.jl follow two different
+branches in δCP; the projected χ² is really the lower of the two.

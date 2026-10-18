@@ -187,6 +187,30 @@ end
 
 identity_matrix(n) = Matrix{Float64}([i == j ? 1.0 : 0.0 for i in 1:n, j in 1:n])
 
+const MAX_POWELL_RESTARTS = 10
+
+"""
+    glb_powell_restarted!(p, ftol, func) -> (status, fret)
+
+Powell's method, restarted from the result with a fresh set of directions
+until a whole run improves `func` by no more than `ftol` (relative).
+
+Powell's stopping rule only looks at the improvement during one sweep, so in
+long curved valleys it can stop well above the minimum (C GLoBES does). A
+restart costs one more sweep or so when the first run had converged.
+"""
+function glb_powell_restarted!(p::Vector{Float64}, ftol, func)
+    n = length(p)
+    status, fret, _ = glb_powell!(p, identity_matrix(n), ftol, func)
+    for _ in 1:MAX_POWELL_RESTARTS
+        status == 0 || break
+        fprev = fret
+        status, fret, _ = glb_powell!(p, identity_matrix(n), ftol, func)
+        2.0 * abs(fprev - fret) <= ftol * (abs(fprev) + abs(fret)) && break
+    end
+    return status, fret
+end
+
 # ---------------------------------------------------------------------------
 #  Hybrid minimizer (oscillation and systematics parameters together)
 # ---------------------------------------------------------------------------
@@ -617,7 +641,7 @@ function internal_chi_np(in::GlbParams, out)
         prior_input.iterations = st.count
         return erg + st.prior_func(prior_input, st.prior_user_data)
     end
-    status, er1, _ = glb_powell!(sp, identity_matrix(nf), TOLOSC, md_chi_np)
+    status, er1 = glb_powell_restarted!(sp, TOLOSC, md_chi_np)
     status != 0 && (st.count = -st.count)
     if out !== nothing
         for i in 1:nf
@@ -704,7 +728,7 @@ function internal_single_chi_np(in::GlbParams, out, exp)
             prior_input.iterations = st.count
             return erg + st.prior_func(prior_input, st.prior_user_data)
         end
-        status, er1, _ = glb_powell!(sp, identity_matrix(s_nfree), TOLOSC, chi_np)
+        status, er1 = glb_powell_restarted!(sp, TOLOSC, chi_np)
         status != 0 && (st.count = -st.count)
         if out !== nothing
             for i in 1:s_nfree

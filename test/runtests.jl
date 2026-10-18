@@ -1,5 +1,6 @@
 using GLoBES
 using Test
+using SpecialFunctions: erf
 
 # Reference numbers from the C library, see reference/make_reference.c.
 # The setups below must match the ones there.
@@ -23,10 +24,12 @@ const SETUPS = [
     ("DChooz",       ["D-Chooz_far.glb", "D-Chooz_near.glb"], Pair{String,Float64}[]),
 ]
 
+# chiSpectrumCalib is not compared with C: GLoBES.jl uses a different energy
+# scale shift (see "energy scale shift" below), and setups that use it are
+# switched to chiSpectrumTilt here and in make_reference.c.
 const ALT_CHI = ["chiSpectrumTilt" => [0.025, 0.01, 0.05, 0.01], "chiNoSysSpectrum" => Float64[],
                  "chiSpectrumOnly" => [0.0], "chiTotalRatesTilt" => [0.025, 0.01, 0.05, 0.01],
-                 "chiNoSysTotalRates" => Float64[], "chiSpectrumCalib" => [0.025, 0.01, 0.05, 0.01],
-                 "chiZero" => Float64[]]
+                 "chiNoSysTotalRates" => Float64[], "chiZero" => Float64[]]
 
 # Tolerances. Rates and χ² at fixed nuisance parameters must agree to rounding.
 # glbChiSys still minimizes over the systematics (Powell, TOLSYS = 1e-8), and
@@ -39,12 +42,18 @@ const RTOL_FIT = 1e-3
 const ATOL_FIT = 1e-6
 const RTOL_FIT_PARAMS = 2e-2
 
-# chiSpectrumCalib shifts the energy scale by linear interpolation between
-# bins, so χ² is only piecewise smooth in the calibration parameter. Its
-# minimum moves by up to a few percent when the starting point changes in the
-# 12th digit, in C as much as here. The function itself is checked exactly in
-# "built-in chi2 functions" via the "fixed" values.
-const RTOL_CALIB = 5e-2
+# DChooz's own χ² function (chiDCNorm, from example5.c) shifts the energy
+# scale with glbShiftEnergyScale, which GLoBES.jl does differently from C, so
+# its χ² values agree with C only to about a percent.
+const RTOL_DCHOOZ = 3e-2
+
+# C GLoBES returns χ² = 1e100 whenever a fit rate is ≤ 0, even for bins with
+# no true and no fit events (NF_hR_lT and BBvar_WC have such bins above the
+# beam energy). GLoBES.jl fixes this, so where C gives the sentinel we only
+# require a finite χ².
+const C_SENTINEL = 1e99
+matches_c(x, key; rtol, atol=0.0) =
+    R[key] >= C_SENTINEL ? (isfinite(x) && -atol <= x < C_SENTINEL) : isapprox(x, R[key]; rtol, atol)
 
 function define_params(th12, th13, th23, delta, dm21, dm31, rho)
     p = glbAllocParams()
@@ -92,9 +101,20 @@ function load_setup(files, vars)
     for f in files
         glbInitExperiment(f)
     end
+    replace_calib()
+end
+
+function replace_calib()
+    for e in 1:glbNumOfExps(), r in 1:glbGetNumberOfRules(e)
+        if glbGetChiFunction(e, r, GLB_ON) == "chiSpectrumCalib"
+            glbSetChiFunction(e, r, GLB_ON, "chiSpectrumTilt", copy(glbGetSysErrorsListPtr(e, r, GLB_ON)))
+        end
+    end
 end
 
 function run_setup(name, files, vars)
+    rtol_sys = name == "DChooz" ? RTOL_DCHOOZ : RTOL_SYS
+    rtol_fit = name == "DChooz" ? RTOL_DCHOOZ : RTOL_FIT
     load_setup(files, vars)
     @test glbNumOfExps() == length(files)
 
@@ -127,40 +147,43 @@ function run_setup(name, files, vars)
     end
 
     @testset "chi2 without fit" begin
-        @test glbChiSys(pt, GLB_ALL, GLB_ALL) ≈ R["$name/chisys"] rtol = RTOL_SYS atol = ATOL_SYS
+        @test matches_c(glbChiSys(pt, GLB_ALL, GLB_ALL), "$name/chisys"; rtol = rtol_sys, atol = ATOL_SYS)
         for e in 1:glbNumOfExps(), r in 1:glbGetNumberOfRules(e)
-            @test glbChiSys(pt, e, r) ≈ R["$name/$e/rule$r/chisys"] rtol = RTOL_SYS atol = ATOL_SYS
+            @test matches_c(glbChiSys(pt, e, r), "$name/$e/rule$r/chisys"; rtol = rtol_sys, atol = ATOL_SYS)
         end
         glbSwitchSystematics(GLB_ALL, GLB_ALL, GLB_OFF)
-        @test glbChiSys(pt, GLB_ALL, GLB_ALL) ≈ R["$name/chisys_off"] rtol = RTOL_SYS atol = ATOL_SYS
+        @test matches_c(glbChiSys(pt, GLB_ALL, GLB_ALL), "$name/chisys_off"; rtol = rtol_sys, atol = ATOL_SYS)
         glbSwitchSystematics(GLB_ALL, GLB_ALL, GLB_ON)
     end
 
     @testset "chi2 with fit" begin
-        @test glbChiTheta13(pt, fit, GLB_ALL) ≈ R["$name/chitheta13"] rtol = RTOL_FIT atol = ATOL_FIT
-        @test glbChiDelta(pt, fit, GLB_ALL) ≈ R["$name/chidelta"] rtol = RTOL_FIT atol = ATOL_FIT
-        @test params_vector(fit) ≈ R["$name/chidelta_fit"] rtol = RTOL_FIT_PARAMS
-        @test glbChiTheta13Delta(pt, nothing, GLB_ALL) ≈ R["$name/chitheta13delta"] rtol = RTOL_FIT atol = ATOL_FIT
+        @test matches_c(glbChiTheta13(pt, fit, GLB_ALL), "$name/chitheta13"; rtol = rtol_fit, atol = ATOL_FIT)
+        # where C's χ² is the 1e100 plateau, its fitted parameters are arbitrary
+        chidelta = glbChiDelta(pt, fit, GLB_ALL)
+        @test matches_c(chidelta, "$name/chidelta"; rtol = rtol_fit, atol = ATOL_FIT)
+        R["$name/chidelta"] < C_SENTINEL &&
+            @test params_vector(fit) ≈ R["$name/chidelta_fit"] rtol = RTOL_FIT_PARAMS
+        @test matches_c(glbChiTheta13Delta(pt, nothing, GLB_ALL), "$name/chitheta13delta"; rtol = rtol_fit, atol = ATOL_FIT)
 
         proj = glbAllocProjection()
         glbDefineProjection(proj, GLB_FIXED, GLB_FIXED, GLB_FREE, GLB_FIXED, GLB_FIXED, GLB_FREE)
         glbSetDensityProjectionFlag(proj, GLB_FREE, GLB_ALL)
         glbSetProjection(proj)
-        @test glbChiNP(pt, nothing, GLB_ALL) ≈ R["$name/chinp"] rtol = RTOL_FIT atol = ATOL_FIT
+        @test matches_c(glbChiNP(pt, nothing, GLB_ALL), "$name/chinp"; rtol = rtol_fit, atol = ATOL_FIT)
     end
 
     if name != "DChooz"
         @testset "built-in chi2 functions" begin
             for (chi, errs) in ALT_CHI
                 glbSetChiFunction(GLB_ALL, GLB_ALL, GLB_ON, chi, errs)
-                rtol = chi == "chiSpectrumCalib" ? RTOL_CALIB : RTOL_SYS
-                @test glbChiSys(pt, GLB_ALL, GLB_ALL) ≈ R["$name/alt/$chi"] rtol = rtol atol = ATOL_SYS
+                @test matches_c(glbChiSys(pt, GLB_ALL, GLB_ALL), "$name/alt/$chi"; rtol = RTOL_SYS, atol = ATOL_SYS)
             end
             # At fixed nuisance parameters, with the fit rates of the last glbChiSys
             x = [0.01, -0.005, 0.02, 0.003]
             for e in 1:glbNumOfExps(), r in 1:glbGetNumberOfRules(e), (chi, errs) in ALT_CHI
                 f = glbGetChiFunctionPtr(chi)
-                @test f(e, r, length(errs), x, errs, nothing) ≈ R["$name/$e/rule$r/fixed/$chi"] rtol = RTOL_EXACT atol = ATOL_SYS
+                @test matches_c(f(e, r, length(errs), x, errs, nothing), "$name/$e/rule$r/fixed/$chi";
+                                rtol = RTOL_EXACT, atol = ATOL_SYS)
             end
         end
     end
@@ -200,10 +223,93 @@ cd(DATADIR) do
         end
 
         @testset "energy scale shift" begin
-            spectrum = [100.0 * exp(-0.5 * ((i - 8.0) / 3.0)^2) + i for i in 0:19]
-            for (k, b) in enumerate((-0.3, -0.04, 0.01, 0.07, 0.3))
-                @test glbShiftEnergyScale(b, spectrum, 20, 0.5, 10.5) ≈ R["shift/$k"] rtol = RTOL_EXACT
+            # Spectra with known bin integrals: G is the cumulative number of events
+            # (zero outside the binned range), so a shift by b moves bin i to
+            # G((1+b) hi) - G((1+b) lo)
+            binned(G, edges) = [G(edges[i+1]) - G(edges[i]) for i in 1:length(edges)-1]
+            centers(edges) = (edges[1:end-1] .+ edges[2:end]) ./ 2
+            equal = collect(range(0.5, 10.5, length=21))
+            unequal = [0.5, 1.5, 2.5, 3.0, 3.5, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 6.0, 6.5, 7.5, 8.5, 10.5]
+            spectra = [("peak", E -> 0.5 * erf((E - 5) / 1.5)),
+                       ("rising to the upper end", E -> E^3 / 300),
+                       ("falling from the lower end", E -> -exp(-E / 2))]
+            for edges in (equal, unequal), (label, cdf) in spectra
+                G = E -> cdf(clamp(E, edges[1], edges[end]))
+                rates = binned(G, edges)
+                shift = b -> GLoBES.shift_energy_scale(b, rates, centers(edges), diff(edges))
+                @test shift(0.0) ≈ rates rtol = 1e-14
+                for b in (-0.05, -0.01, 0.003, 0.01, 0.05)
+                    exact = binned(E -> G((1 + b) * E), edges)
+                    out = shift(b)
+                    @test all(out .>= 0)
+                    # events are conserved, up to the resolution of the last bin
+                    @test sum(out) ≈ sum(exact) rtol = (edges === equal ? 1e-3 : 5e-3)
+                    # C GLoBES' linear interpolation is off by up to 44% here
+                    @test maximum(abs.(out .- exact)) <= (edges === equal ? 2e-3 : 5e-2) * maximum(exact)
+                end
             end
+
+            # Smooth in b at b = 0 for a spectrum that vanishes at both ends
+            # (C's version has a kink there in every bin)
+            peak = binned(E -> 0.5 * erf((clamp(E, 0.5, 10.5) - 5) / 1.0), equal)
+            shifted = b -> glbShiftEnergyScale(b, peak, 20, 0.5, 10.5)
+            h = 1e-6
+            @test (shifted(h) .- shifted(0.0)) ./ h ≈ (shifted(0.0) .- shifted(-h)) ./ h rtol = 1e-3 atol = 1e-6
+
+            # Shifting past the upper end must not create events (C doubles the last bin)
+            flat = ones(20)
+            @test glbShiftEnergyScale(0.01, flat, 20, 0.5, 10.5)[end] < 1
+        end
+
+        @testset "Poisson likelihood" begin
+            L = glb_likelihood
+            @test L(0.0, 0.0) == 0                       # empty bin (C: 2e100)
+            @test L(0.0, 1.5) ≈ 3.0
+            @test L(4.0, 4.0) == 0
+            @test L(4.0, 2.0) ≈ 2 * (2.0 - 4.0 + 4.0 * log(2.0))
+            # with observed events, a vanishing or negative fit rate gives a large,
+            # finite, continuous and increasing penalty instead of a jump to 1e100
+            f0 = GLoBES.FIT_RATE_FLOOR
+            @test L(4.0, f0 * (1 + 1e-9)) ≈ L(4.0, f0 * (1 - 1e-9)) rtol = 1e-9
+            @test L(4.0, 1e-3) < L(4.0, 0.0) < L(4.0, -1.0) < Inf
+        end
+
+        @testset "chiSpectrumCalib" begin
+            load_setup(["NOvA.glb"], [])
+            glbSetChiFunction(GLB_ALL, GLB_ALL, GLB_ON, "chiSpectrumCalib", [0.025, 0.01, 0.05, 0.01])
+            glbSetOscillationParameters(true_point())
+            glbSetRates()
+            pt = test_point()
+            glbChiSys(pt, 1, 1)                          # computes the fit rates at pt
+            # without energy scale shifts, the χ² is the plain normalisation fit
+            x = [0.01, 0.0, 0.02, 0.0]
+            errs = [0.025, 0.01, 0.05, 0.01]
+            true_rates = glbGetRuleRatePtr(1, 1)
+            sig, bg = glbGetSignalFitRatePtr(1, 1), glbGetBGFitRatePtr(1, 1)
+            bg_center = glbGetBGCenters(1, 1)[1]
+            lo, hi = glbGetEnergyWindowBins(1, 1)
+            expected = sum(glb_likelihood(true_rates[i], 1.01 * sig[i] + 1.02 * bg_center * bg[i]) for i in lo:hi) +
+                       (0.01 / 0.025)^2 + (0.02 * bg_center / 0.05)^2
+            @test glbGetChiFunctionPtr("chiSpectrumCalib")(1, 1, 4, x, errs, nothing) ≈ expected rtol = 1e-12
+            # its minimum no longer depends on the last digits of the starting point
+            chi(eps) = (p = test_point(); glbSetOscParams(p, glbGetOscParams(p, GLB_THETA_23) * (1 + eps), GLB_THETA_23);
+                        glbChiSys(p, 1, 1))
+            @test chi(1e-12) ≈ chi(0.0) rtol = 1e-9
+            @test chi(-1e-12) ≈ chi(0.0) rtol = 1e-9
+        end
+
+        @testset "minimizer restarts" begin
+            # The sgn(Δm²31) degeneracy fit of example-tour.c: Powell's method
+            # stops at χ² = 4.2979 here without restarts; C GLoBES reaches 4.28596
+            load_setup(["NFstandard.glb"], [])
+            th12, sdm, ldm = asin(sqrt(0.8)) / 2, 7e-5, 2e-3
+            truth = define_params(th12, asin(sqrt(0.001)) / 2, π / 4, π / 2, sdm, ldm, 1.0)
+            glbSetOscillationParameters(truth)
+            glbSetRates()
+            start = define_params(th12, asin(sqrt(0.001)) / 2, π / 4, π / 2, sdm, -ldm, 1.0)
+            glbSetCentralValues(start)
+            glbSetInputErrors(define_params(0.1 * th12, 0, 0, 0, 0.1 * sdm, ldm / 3, 0.05))
+            @test glbChiAll(start, nothing, GLB_ALL) < 4.28595
         end
 
         for (name, files, vars) in SETUPS

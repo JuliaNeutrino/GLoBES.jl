@@ -11,6 +11,7 @@
  * are 1-based to match the Julia API.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <globes/globes.h>
@@ -90,11 +91,32 @@ static const struct setup setups[] = {
 };
 static const int n_setups = sizeof(setups) / sizeof(setups[0]);
 
-/* Built-in chi^2 functions tried on every rule, with their error vectors */
+/* Built-in chi^2 functions tried on every rule, with their error vectors.
+ * chiSpectrumCalib is left out: GLoBES.jl replaces its energy scale shift,
+ * which is kinked at b = 0 and assumes equal bins, by a better one. */
 static const char *alt_chi[] = { "chiSpectrumTilt", "chiNoSysSpectrum", "chiSpectrumOnly",
-  "chiTotalRatesTilt", "chiNoSysTotalRates", "chiSpectrumCalib", "chiZero" };
+  "chiTotalRatesTilt", "chiNoSysTotalRates", "chiZero" };
 static double alt_err[][4] = { { 0.025, 0.01, 0.05, 0.01 }, { 0 }, { 0 },
-  { 0.025, 0.01, 0.05, 0.01 }, { 0 }, { 0.025, 0.01, 0.05, 0.01 }, { 0 } };
+  { 0.025, 0.01, 0.05, 0.01 }, { 0 }, { 0 } };
+
+/* For the same reason, rules that use chiSpectrumCalib are switched to
+ * chiSpectrumTilt, which has the same four nuisance parameters */
+static void replace_calib(void)
+{
+  char name[64];
+  for (int e = 0; e < glb_num_of_exps; e++)
+    for (int r = 0; r < glbGetNumberOfRules(e); r++) {
+      glbGetChiFunction(e, r, GLB_ON, name, sizeof name);
+      if (strcmp(name, "chiSpectrumCalib") == 0) {
+        double errors[4];   /* a copy: C rejects the rule's own error array */
+        memcpy(errors, glbGetSysErrorsListPtr(e, r, GLB_ON), sizeof errors);
+        if (glbSetChiFunction(e, r, GLB_ON, "chiSpectrumTilt", errors) != 0) {
+          fprintf(stderr, "replace_calib failed\n");
+          exit(1);
+        }
+      }
+    }
+}
 
 static void define_params(glb_params p, double th12, double th13, double th23,
                           double delta, double dm21, double dm31, double rho)
@@ -120,6 +142,7 @@ static void run_setup(const struct setup *s)
   glbClearExperimentList();
   for (int i = 0; i < 2 && s->files[i]; i++)
     glbInitExperiment((char *)s->files[i], &glb_experiment_list[0], &glb_num_of_exps);
+  replace_calib();
 
   glb_params p0 = glbAllocParams(), pt = glbAllocParams(), fit = glbAllocParams();
   glb_params err = glbAllocParams();
@@ -195,7 +218,7 @@ static void run_setup(const struct setup *s)
     /* The same functions at fixed nuisance parameters, without minimisation.
      * The fit rates are still those of the test point from the last glbChiSys. */
     static double x[4] = { 0.01, -0.005, 0.02, 0.003 };
-    static const int dims[] = { 4, 0, 1, 4, 0, 4, 0 };
+    static const int dims[] = { 4, 0, 1, 4, 0, 0 };
     for (int e = 0; e < glb_num_of_exps; e++)
       for (int r = 0; r < glbGetNumberOfRules(e); r++)
         for (int k = 0; k < (int)(sizeof alt_chi / sizeof alt_chi[0]); k++) {
@@ -246,15 +269,6 @@ static void probabilities(void)
   }
   put_vec("prob/energies", energies, nE);
 
-  /* Energy scale shift of a fixed spectrum */
-  double in[20], sh[20];
-  for (int i = 0; i < 20; i++) in[i] = 100.0 * exp(-0.5 * sq((i - 8.0) / 3.0)) + i;
-  static const double shifts[] = { -0.3, -0.04, 0.01, 0.07, 0.3 };
-  for (int k = 0; k < (int)(sizeof shifts / sizeof shifts[0]); k++) {
-    glbShiftEnergyScale(shifts[k], in, sh, 20, 0.5, 10.5);
-    snprintf(key, sizeof key, "shift/%d", k+1);
-    put_vec(key, sh, 20);
-  }
   glbFreeParams(p0);
 }
 
