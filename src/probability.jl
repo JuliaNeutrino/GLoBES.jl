@@ -5,10 +5,10 @@
 # Matter potential V = sqrt(2) G_F N_e: GLB_V_FACTOR = sqrt(2) G_F N_A (ħc)^3 in
 # eV per g/cm^3 (CODATA 2018; C GLoBES uses 7.5e-14), times the electron
 # fraction Y_e = 0.5
-const GLB_V_FACTOR   = sqrt(2) * 1.1663787e-23 * 6.02214076e23 * (1.973269804e-5)^3
-const GLB_Ne_MANTLE  = 0.5
-const V_THRESHOLD    = 0.001 * GLB_V_FACTOR * GLB_Ne_MANTLE
-const M_SQRT3        = 1.73205080756887729352744634151
+const GLB_V_FACTOR = sqrt(2) * 1.1663787e-23 * 6.02214076e23 * (1.973269804e-5)^3
+const GLB_Ne_MANTLE = 0.5
+const V_THRESHOLD = 0.001 * GLB_V_FACTOR * GLB_Ne_MANTLE
+const M_SQRT3 = 1.73205080756887729352744634151
 
 @inline sqr(x) = x * x
 @inline sqrabs(z::Complex) = sqr(real(z)) + sqr(imag(z))
@@ -21,10 +21,12 @@ const M_SQRT3        = 1.73205080756887729352744634151
 
 function zhetrd3!(A, Q, d, e)
     n = 3
-    u1 = zero(ComplexF64); u2 = zero(ComplexF64)
-    q1 = zero(ComplexF64); q2 = zero(ComplexF64)
+    u1 = zero(ComplexF64)
+    u2 = zero(ComplexF64)
+    q1 = zero(ComplexF64)
+    q2 = zero(ComplexF64)
 
-    for i in 1:n, j in 1:n
+    for i = 1:n, j = 1:n
         Q[i, j] = i == j ? 1.0 : 0.0
     end
 
@@ -66,7 +68,7 @@ function zhetrd3!(A, Q, d, e)
 
         f = A[2, 3] - q1 * conj(u2) - u1 * conj(q2)
     else
-        for i in 1:n
+        for i = 1:n
             d[i] = real(A[i, i])
         end
         f = A[2, 3]
@@ -87,11 +89,14 @@ function zheevc3!(A, w)
     dd = sqrabs(A[1, 2])
     ee = sqrabs(A[2, 3])
     ff = sqrabs(A[1, 3])
-    a = real(A[1, 1]); b = real(A[2, 2]); c = real(A[3, 3])
-    m  = a + b + c
+    a = real(A[1, 1])
+    b = real(A[2, 2])
+    c = real(A[3, 3])
+    m = a + b + c
     c1 = (a * b + a * c + b * c) - (dd + ee + ff)
-    c0 = c * dd + a * ee + b * ff - a * b * c -
-         2.0 * (real(A[1, 3]) * real(de) + imag(A[1, 3]) * imag(de))
+    c0 =
+        c * dd + a * ee + b * ff - a * b * c -
+        2.0 * (real(A[1, 3]) * real(de) + imag(A[1, 3]) * imag(de))
 
     p = sqr(m) - 3.0 * c1
     q = m * (p - (3.0 / 2.0) * c1) - (27.0 / 2.0) * c0
@@ -101,11 +106,11 @@ function zheevc3!(A, w)
     phi = (1.0 / 3.0) * atan(sqrt(abs(phi)), q)
 
     cc = sqrt_p * cos(phi)
-    s  = (1.0 / M_SQRT3) * sqrt_p * sin(phi)
+    s = (1.0 / M_SQRT3) * sqrt_p * sin(phi)
 
-    w[2]  = (1.0 / 3.0) * (m - cc)
-    w[3]  = w[2] + s
-    w[1]  = w[2] + cc
+    w[2] = (1.0 / 3.0) * (m - cc)
+    w[3] = w[2] + s
+    w[1] = w[2] + cc
     w[2] -= s
     return 0
 end
@@ -115,12 +120,12 @@ function zheevq3!(A, Q, w)
     e = MVector3()
     zhetrd3!(A, Q, w, e)
 
-    for l in 1:n-1
+    for l = 1:(n - 1)
         nIter = 0
         while true
             m = l
             while m <= n - 1
-                g = abs(w[m]) + abs(w[m+1])
+                g = abs(w[m]) + abs(w[m + 1])
                 if abs(e[m]) + g == g
                     break
                 end
@@ -133,7 +138,7 @@ function zheevq3!(A, Q, w)
             nIter += 1
             nIter > 30 && return -1
 
-            g = (w[l+1] - w[l]) / (e[l] + e[l])
+            g = (w[l + 1] - w[l]) / (e[l] + e[l])
             r = sqrt(sqr(g) + 1.0)
             if g > 0
                 g = w[m] - w[l] + e[l] / (g + r)
@@ -141,39 +146,41 @@ function zheevq3!(A, Q, w)
                 g = w[m] - w[l] + e[l] / (g - r)
             end
 
-            s = 1.0; c = 1.0; p = 0.0
-            for i in m-1:-1:l
+            s = 1.0
+            c = 1.0
+            p = 0.0
+            for i = (m - 1):-1:l
                 f = s * e[i]
                 b = c * e[i]
                 if abs(f) > abs(g)
                     c = g / f
                     r = sqrt(sqr(c) + 1.0)
-                    e[i+1] = f * r
+                    e[i + 1] = f * r
                     s = 1.0 / r
                     c *= s
                 else
                     s = f / g
                     r = sqrt(sqr(s) + 1.0)
-                    e[i+1] = g * r
+                    e[i + 1] = g * r
                     c = 1.0 / r
                     s *= c
                 end
 
-                g = w[i+1] - p
+                g = w[i + 1] - p
                 r = (w[i] - g) * s + 2.0 * c * b
                 p = s * r
-                w[i+1] = g + p
+                w[i + 1] = g + p
                 g = c * r - b
 
-                for k in 1:n
-                    t = Q[k, i+1]
-                    Q[k, i+1] = s * Q[k, i] + c * t
-                    Q[k, i]   = c * Q[k, i] - s * t
+                for k = 1:n
+                    t = Q[k, i + 1]
+                    Q[k, i + 1] = s * Q[k, i] + c * t
+                    Q[k, i] = c * Q[k, i] - s * t
                 end
             end
             w[l] -= p
-            e[l]  = g
-            e[m]  = 0.0
+            e[l] = g
+            e[m] = 0.0
         end
     end
     return 0
@@ -205,7 +212,7 @@ function zheevh3!(A, Q, w)
         return zheevq3!(A, Q, w)
     else
         nrm = sqrt(1.0 / nrm)
-        for j in 1:3
+        for j = 1:3
             Q[j, 1] = Q[j, 1] * nrm
         end
     end
@@ -219,7 +226,7 @@ function zheevh3!(A, Q, w)
         return zheevq3!(A, Q, w)
     else
         nrm = sqrt(1.0 / nrm)
-        for j in 1:3
+        for j = 1:3
             Q[j, 2] = Q[j, 2] * nrm
         end
     end
@@ -258,26 +265,32 @@ end
 
 function set_oscillation_parameters!(eng::StandardEngine, osc::AbstractVector{<:Real})
     th12, th13, th23, delta = osc[1], osc[2], osc[3], osc[4]
-    eng.th12 = th12; eng.th13 = th13; eng.th23 = th23; eng.delta = delta
+    eng.th12 = th12
+    eng.th13 = th13
+    eng.th23 = th23
+    eng.delta = delta
     eng.mq[1] = 0.0
     eng.mq[2] = osc[5]
     eng.mq[3] = osc[6]
 
     U = eng.U
-    s12, c12 = sincos(th12); s13, c13 = sincos(th13); s23, c23 = sincos(th23)
-    ep = cis(delta); em = cis(-delta)
+    s12, c12 = sincos(th12)
+    s13, c13 = sincos(th13)
+    s23, c23 = sincos(th23)
+    ep = cis(delta)
+    em = cis(-delta)
     U[1, 1] = c12 * c13
     U[1, 2] = s12 * c13
     U[1, 3] = s13 * em
     U[2, 1] = -s12 * c23 - c12 * s23 * s13 * ep
-    U[2, 2] =  c12 * c23 - s12 * s23 * s13 * ep
-    U[2, 3] =  s23 * c13
-    U[3, 1] =  s12 * s23 - c12 * c23 * s13 * ep
+    U[2, 2] = c12 * c23 - s12 * s23 * s13 * ep
+    U[2, 3] = s23 * c13
+    U[3, 1] = s12 * s23 - c12 * c23 * s13 * ep
     U[3, 2] = -c12 * s23 - s12 * c23 * s13 * ep
-    U[3, 3] =  c23 * c13
+    U[3, 3] = c23 * c13
 
     D = zeros(ComplexF64, 3, 3)
-    for i in 1:3
+    for i = 1:3
         D[i, i] = 0.5 * eng.mq[i]
     end
     eng.H0_template .= U * D * U'
@@ -286,19 +299,19 @@ function set_oscillation_parameters!(eng::StandardEngine, osc::AbstractVector{<:
 end
 
 function get_oscillation_parameters(eng::StandardEngine)
-    return [eng.th12, eng.th13, eng.th23, eng.delta,
-            eng.mq[2] - eng.mq[1], eng.mq[3] - eng.mq[1]]
+    return [eng.th12, eng.th13, eng.th23, eng.delta, eng.mq[2] - eng.mq[1], eng.mq[3] - eng.mq[1]]
 end
 
 function hamiltonian_cd!(eng::StandardEngine, E, V, cp_sign)
     inv_E = 1.0 / E
-    H = eng.H; H0 = eng.H0_template
+    H = eng.H
+    H0 = eng.H0_template
     if cp_sign > 0
-        for i in 1:3, j in 1:3
+        for i = 1:3, j = 1:3
             H[i, j] = H0[i, j] * inv_E
         end
     else
-        for i in 1:3, j in 1:3
+        for i = 1:3, j = 1:3
             H[i, j] = conj(H0[i, j] * inv_E)   # delta_CP -> -delta_CP
         end
     end
@@ -310,13 +323,13 @@ end
 function diagonalize!(eng::StandardEngine, E, V, cp_sign)
     if V < V_THRESHOLD
         inv_E = 0.5 / E
-        for i in 1:3
+        for i = 1:3
             eng.lambda[i] = eng.mq[i] * inv_E
         end
         if cp_sign > 0
             eng.Q .= eng.U
         else
-            for i in 1:3, j in 1:3
+            for i = 1:3, j = 1:3
                 eng.Q[i, j] = conj(eng.U[i, j])
             end
         end
@@ -330,15 +343,19 @@ end
 function S_matrix_cd!(eng::StandardEngine, E, L, V, cp_sign)
     status = diagonalize!(eng, E, V, cp_sign)
     status != 0 && return status
-    Q = eng.Q; T0 = eng.T0; S = eng.S
+    Q = eng.Q
+    T0 = eng.T0
+    S = eng.S
     # S = Q . diag(exp(-i L lambda)) . Q^dagger
-    ph1 = cis(-L * eng.lambda[1]); ph2 = cis(-L * eng.lambda[2]); ph3 = cis(-L * eng.lambda[3])
-    for i in 1:3, j in 1:3
+    ph1 = cis(-L * eng.lambda[1])
+    ph2 = cis(-L * eng.lambda[2])
+    ph3 = cis(-L * eng.lambda[3])
+    for i = 1:3, j = 1:3
         T0[i, j] = (i == 1 ? ph1 : i == 2 ? ph2 : ph3) * conj(Q[j, i])
     end
-    for i in 1:3, j in 1:3
+    for i = 1:3, j = 1:3
         acc = zero(ComplexF64)
-        for k in 1:3
+        for k = 1:3
             acc += Q[i, k] * T0[k, j]
         end
         S[i, j] = acc
@@ -349,17 +366,19 @@ end
 function filtered_probability_matrix_cd!(P, eng::StandardEngine, E, L, V, sigma, cp_sign)
     status = diagonalize!(eng, E, V, cp_sign)
     status != 0 && return status
-    Q = eng.Q; T0 = eng.T0; lam = eng.lambda
+    Q = eng.Q
+    T0 = eng.T0
+    lam = eng.lambda
     fill!(T0, 0)
-    for i in 1:3, j in i+1:3
+    for i = 1:3, j = (i + 1):3
         phase = -L * (lam[i] - lam[j])
         filter_factor = exp(-0.5 * sqr(phase * sigma) / sqr(1.0e-9 * E))
         T0[i, j] = filter_factor * cis(phase)
     end
-    for k in 1:3, l in 1:3
+    for k = 1:3, l = 1:3
         acc = 0.0
-        for i in 1:3
-            for j in i+1:3
+        for i = 1:3
+            for j = (i + 1):3
                 acc += 2 * real(Q[k, j] * conj(Q[l, j]) * conj(Q[k, i]) * Q[l, i] * T0[i, j])
             end
             acc += sqrabs(Q[k, i]) * sqrabs(Q[l, i])
@@ -382,25 +401,40 @@ function probability_matrix!(P, eng::StandardEngine, cp_sign, E, psteps, len, de
     E *= 1.0e9
     if filter_sigma > 0.0
         psteps == 1 || return -1
-        return filtered_probability_matrix_cd!(P, eng, E, km_to_ev(len[1]),
-                    dens[1] * GLB_V_FACTOR * GLB_Ne_MANTLE, filter_sigma, cp_sign)
+        return filtered_probability_matrix_cd!(
+            P,
+            eng,
+            E,
+            km_to_ev(len[1]),
+            dens[1] * GLB_V_FACTOR * GLB_Ne_MANTLE,
+            filter_sigma,
+            cp_sign,
+        )
     end
     if psteps > 1
         S1 = eng.S1
-        fill!(S1, 0); S1[1, 1] = S1[2, 2] = S1[3, 3] = 1
-        for i in 1:psteps
-            status = S_matrix_cd!(eng, E, km_to_ev(len[i]), dens[i] * GLB_V_FACTOR * GLB_Ne_MANTLE, cp_sign)
+        fill!(S1, 0)
+        S1[1, 1] = S1[2, 2] = S1[3, 3] = 1
+        for i = 1:psteps
+            status = S_matrix_cd!(
+                eng,
+                E,
+                km_to_ev(len[i]),
+                dens[i] * GLB_V_FACTOR * GLB_Ne_MANTLE,
+                cp_sign,
+            )
             status != 0 && return status
             mul!(eng.T0, eng.S, S1)
             S1 .= eng.T0
         end
         eng.S .= S1
     else
-        status = S_matrix_cd!(eng, E, km_to_ev(len[1]), dens[1] * GLB_V_FACTOR * GLB_Ne_MANTLE, cp_sign)
+        status =
+            S_matrix_cd!(eng, E, km_to_ev(len[1]), dens[1] * GLB_V_FACTOR * GLB_Ne_MANTLE, cp_sign)
         status != 0 && return status
     end
     S = eng.S
-    for i in 1:3, j in 1:3
+    for i = 1:3, j = 1:3
         P[j, i] = sqrabs(S[i, j])
     end
     return 0

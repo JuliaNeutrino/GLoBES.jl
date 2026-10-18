@@ -26,16 +26,22 @@ isidchar(c) = isidstart(c) || isdigit(c) || c == '_'
 
 function lex_number(s, i, n)
     j = i
-    while j <= n && isdigit(s[j]); j += 1; end
+    while j <= n && isdigit(s[j])
+        j += 1
+    end
     if j <= n && s[j] == '.'
         j += 1
-        while j <= n && isdigit(s[j]); j += 1; end
+        while j <= n && isdigit(s[j])
+            j += 1
+        end
     end
     if j <= n && (s[j] == 'e' || s[j] == 'E')
         k = j + 1
         k <= n && (s[k] == '+' || s[k] == '-') && (k += 1)
         if k <= n && isdigit(s[k])
-            while k <= n && isdigit(s[k]); k += 1; end
+            while k <= n && isdigit(s[k])
+                k += 1
+            end
             j = k
         end
     end
@@ -47,7 +53,7 @@ end
 
 Tokenize an AEDL file, splicing in `include "file"` directives.
 """
-function aedl_tokenize(path::AbstractString; depth::Int=0, display_name::AbstractString=path)
+function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::AbstractString = path)
     depth > MAX_INCLUDE_DEPTH && throw(AEDLError("Includes nested too deeply"))
     s = collect(read(path, String))
     n = length(s)
@@ -55,23 +61,27 @@ function aedl_tokenize(path::AbstractString; depth::Int=0, display_name::Abstrac
     line = 1
     i = 1
     dir = dirname(abspath(path))
-    tok(kind, text, val=0.0) = push!(toks, Token(kind, text, val, display_name, line, dir))
+    tok(kind, text, val = 0.0) = push!(toks, Token(kind, text, val, display_name, line, dir))
     while i <= n
         c = s[i]
         if c == '\n'
-            tok(:nl, "\n"); line += 1; i += 1
+            tok(:nl, "\n")
+            line += 1
+            i += 1
         elseif c == ' ' || c == '\t' || c == '\r'
             i += 1
-        elseif c == '/' && i < n && s[i+1] == '/'
-            while i <= n && s[i] != '\n'; i += 1; end
-        elseif c == '/' && i < n && s[i+1] == '*'
+        elseif c == '/' && i < n && s[i + 1] == '/'
+            while i <= n && s[i] != '\n'
+                i += 1
+            end
+        elseif c == '/' && i < n && s[i + 1] == '*'
             i += 2
-            while i <= n && !(s[i] == '*' && i < n && s[i+1] == '/')
+            while i <= n && !(s[i] == '*' && i < n && s[i + 1] == '/')
                 s[i] == '\n' && (line += 1)
                 i += 1
             end
             i += 2
-        elseif c == '%' && i + 7 <= n && String(s[i:i+7]) == "%!GLoBES"
+        elseif c == '%' && i + 7 <= n && String(s[i:(i + 7)]) == "%!GLoBES"
             i += 8
         elseif c == '"'
             j = i + 1
@@ -80,48 +90,58 @@ function aedl_tokenize(path::AbstractString; depth::Int=0, display_name::Abstrac
                 j += 1
             end
             j > n && throw(AEDLError("Unterminated string in $display_name:$line"))
-            str = String(s[i+1:j-1])
+            str = String(s[(i + 1):(j - 1)])
             i = j + 1
             if !isempty(toks) && toks[end].kind == :ident && toks[end].text == "include"
                 pop!(toks)
                 incpath = glb_find_file(str, dirname(path))
-                incpath === nothing && throw(AEDLError("Could not open include file \"$str\" ($display_name:$line)"))
-                inc = aedl_tokenize(incpath; depth=depth + 1, display_name=str)
+                incpath === nothing &&
+                    throw(AEDLError("Could not open include file \"$str\" ($display_name:$line)"))
+                inc = aedl_tokenize(incpath; depth = depth + 1, display_name = str)
                 inc[end].kind == :eof && pop!(inc)
                 append!(toks, inc)
             else
                 tok(:str, str)
             end
-        elseif isdigit(c) || (c == '.' && i < n && isdigit(s[i+1]))
+        elseif isdigit(c) || (c == '.' && i < n && isdigit(s[i + 1]))
             j = lex_number(s, i, n)
-            txt = String(s[i:j-1])
+            txt = String(s[i:(j - 1)])
             tok(:num, txt, parse(Float64, txt))
             i = j
         elseif isidstart(c)
             j = i
-            while j <= n && isidchar(s[j]); j += 1; end
-            tok(:ident, String(s[i:j-1]))
+            while j <= n && isidchar(s[j])
+                j += 1
+            end
+            tok(:ident, String(s[i:(j - 1)]))
             i = j
-        elseif (c == '$' || c == '@' || c == '%') && i < n && isidstart(s[i+1])
+        elseif (c == '$' || c == '@' || c == '%') && i < n && isidstart(s[i + 1])
             j = i + 1
-            while j <= n && isidchar(s[j]); j += 1; end
-            tok(c == '$' ? :dollar : c == '@' ? :at : :pct, String(s[i:j-1]))
+            while j <= n && isidchar(s[j])
+                j += 1
+            end
+            tok(c == '$' ? :dollar : c == '@' ? :at : :pct, String(s[i:(j - 1)]))
             i = j
         elseif c == '@'
-            tok(:rulemult, "@"); i += 1
+            tok(:rulemult, "@")
+            i += 1
         elseif c == '#'
-            if i + 5 <= n && String(s[i:i+5]) == "#NEXT#"
-                tok(:next, "#NEXT#"); i += 6
-            elseif i < n && isidstart(s[i+1])
+            if i + 5 <= n && String(s[i:(i + 5)]) == "#NEXT#"
+                tok(:next, "#NEXT#")
+                i += 6
+            elseif i < n && isidstart(s[i + 1])
                 j = i + 1
-                while j <= n && isidchar(s[j]); j += 1; end
-                tok(:hash, String(s[i:j-1]))
+                while j <= n && isidchar(s[j])
+                    j += 1
+                end
+                tok(:hash, String(s[i:(j - 1)]))
                 i = j
             else
                 throw(AEDLError("Unexpected '#' in $display_name:$line"))
             end
         else
-            tok(:op, string(c)); i += 1
+            tok(:op, string(c))
+            i += 1
         end
     end
     tok(:eof, "")
@@ -141,10 +161,10 @@ mutable struct AEDLParser
     finished::Vector{ExperimentData}
     context::String
     loc_count::Int
-    vars::Dict{String,Float64}
-    lists::Dict{String,Vector{Float64}}
-    names::Dict{String,Tuple{String,Int}}     # name -> (context, value)
-    counters::Dict{String,Int}
+    vars::Dict{String, Float64}
+    lists::Dict{String, Vector{Float64}}
+    names::Dict{String, Tuple{String, Int}}     # name -> (context, value)
+    counters::Dict{String, Int}
     flt::Flux
     xsc::XSec
     ibf::SmearData
@@ -152,14 +172,26 @@ mutable struct AEDLParser
 end
 
 # User-predefined AEDL variables and lists (glbDefineAEDLVariable/List)
-const aedl_presym_vars = Dict{String,Float64}()
-const aedl_presym_lists = Dict{String,Vector{Float64}}()
+const aedl_presym_vars = Dict{String, Float64}()
+const aedl_presym_lists = Dict{String, Vector{Float64}}()
 
 function new_parser(toks, filename)
-    p = AEDLParser(toks, 1, ExperimentData(), ExperimentData[], "global", -1,
-                   Dict{String,Float64}(), Dict{String,Vector{Float64}}(),
-                   Dict{String,Tuple{String,Int}}(), Dict{String,Int}(),
-                   Flux(), XSec(), SmearData(), filename)
+    p = AEDLParser(
+        toks,
+        1,
+        ExperimentData(),
+        ExperimentData[],
+        "global",
+        -1,
+        Dict{String, Float64}(),
+        Dict{String, Vector{Float64}}(),
+        Dict{String, Tuple{String, Int}}(),
+        Dict{String, Int}(),
+        Flux(),
+        XSec(),
+        SmearData(),
+        filename,
+    )
     reset_parser_tables!(p)
     return p
 end
@@ -167,7 +199,7 @@ end
 function reset_parser_tables!(p::AEDLParser)
     p.vars = copy(aedl_presym_vars)
     p.lists = Dict(k => copy(v) for (k, v) in aedl_presym_lists)
-    p.names = Dict{String,Tuple{String,Int}}()
+    p.names = Dict{String, Tuple{String, Int}}()
     for k in keys(SIGMA_FUNCTIONS)
         p.names[k] = ("energy", -1)
     end
@@ -179,10 +211,10 @@ function reset_parser_tables!(p::AEDLParser)
 end
 
 peek(p::AEDLParser) = p.toks[p.pos]
-peekk(p::AEDLParser, k=1) = p.toks[min(p.pos + k, length(p.toks))]
+peekk(p::AEDLParser, k = 1) = p.toks[min(p.pos + k, length(p.toks))]
 advance!(p::AEDLParser) = (t = p.toks[p.pos]; p.pos < length(p.toks) && (p.pos += 1); t)
 
-function perr(p::AEDLParser, msg, t::Token=peek(p))
+function perr(p::AEDLParser, msg, t::Token = peek(p))
     throw(AEDLError("$msg in file [$(t.file)]: in line $(t.line)"))
 end
 
@@ -194,18 +226,29 @@ function expect_op!(p::AEDLParser, c)
     advance!(p)
 end
 
-skipnl!(p::AEDLParser) = while peek(p).kind == :nl; advance!(p); end
+skipnl!(p::AEDLParser) =
+    while peek(p).kind == :nl
+        advance!(p)
+    end
 
 # ---------------------------------------------------------------------------
 #  Expressions and lists
 # ---------------------------------------------------------------------------
 
-const SCALAR_FUNCTIONS = Dict{String,Function}(
-    "sin" => sin, "cos" => cos, "tan" => tan, "asin" => asin, "acos" => acos,
-    "atan" => atan, "log" => log, "exp" => exp, "log10" => log10, "sqrt" => sqrt,
+const SCALAR_FUNCTIONS = Dict{String, Function}(
+    "sin" => sin,
+    "cos" => cos,
+    "tan" => tan,
+    "asin" => asin,
+    "acos" => acos,
+    "atan" => atan,
+    "log" => log,
+    "exp" => exp,
+    "log10" => log10,
+    "sqrt" => sqrt,
 )
-const LIST_FUNCTIONS = ("reverse", "copy", "echo", "echon", "line", "interpolation",
-                        "bincenter", "samplingbincenter")
+const LIST_FUNCTIONS =
+    ("reverse", "copy", "echo", "echon", "line", "interpolation", "bincenter", "samplingbincenter")
 
 aedl_isfunction(name) = haskey(SCALAR_FUNCTIONS, name) || name in LIST_FUNCTIONS
 
@@ -214,9 +257,11 @@ function parse_expr(p::AEDLParser)
     while true
         t = peek(p)
         if isop(t, "+") || isop(t, "-")
-            advance!(p); skipnl!(p)
+            advance!(p)
+            skipnl!(p)
             r = parse_term(p)
-            v = scalar(p, v); r = scalar(p, r)
+            v = scalar(p, v)
+            r = scalar(p, r)
             v = t.text == "+" ? v + r : v - r
         else
             return v
@@ -229,8 +274,10 @@ function parse_term(p::AEDLParser)
     while true
         t = peek(p)
         if isop(t, "*") || isop(t, "/")
-            advance!(p); skipnl!(p)
-            r = scalar(p, parse_unary(p)); v = scalar(p, v)
+            advance!(p)
+            skipnl!(p)
+            r = scalar(p, parse_unary(p))
+            v = scalar(p, v)
             v = t.text == "*" ? v * r : v / r
         else
             return v
@@ -271,7 +318,8 @@ function parse_list_literal(p::AEDLParser)
         push!(out, scalar(p, parse_expr(p)))
         skipnl!(p)
         if isop(peek(p), ",")
-            advance!(p); skipnl!(p)
+            advance!(p)
+            skipnl!(p)
         end
     end
     advance!(p)
@@ -284,7 +332,8 @@ function parse_primary(p::AEDLParser)
         advance!(p)
         return t.val
     elseif isop(t, "(")
-        advance!(p); skipnl!(p)
+        advance!(p)
+        skipnl!(p)
         v = parse_expr(p)
         skipnl!(p)
         expect_op!(p, ")")
@@ -323,7 +372,8 @@ function parse_function_call(p::AEDLParser)
     args = Any[parse_expr(p)]
     skipnl!(p)
     while isop(peek(p), ",")
-        advance!(p); skipnl!(p)
+        advance!(p)
+        skipnl!(p)
         push!(args, parse_expr(p))
         skipnl!(p)
     end
@@ -342,11 +392,15 @@ function parse_function_call(p::AEDLParser)
     elseif name == "copy"
         return copy(a)
     elseif name == "echo"
-        foreach(x -> print(x, " "), a isa Float64 ? [a] : a); return a
+        foreach(x -> print(x, " "), a isa Float64 ? [a] : a)
+        return a
     elseif name == "echon"
-        foreach(println, a isa Float64 ? [a] : a); return a
+        foreach(println, a isa Float64 ? [a] : a)
+        return a
     elseif name == "line"
-        for x in (a isa Float64 ? [a] : a); print("\n"^floor(Int, x)); end
+        for x in (a isa Float64 ? [a] : a)
+            print("\n"^floor(Int, x))
+        end
         return a
     end
     perr(p, "Improper use of special function $name")
@@ -360,7 +414,8 @@ function aedl_bincenter(p::AEDLParser)
 end
 
 function aedl_samplingbincenter(p::AEDLParser)
-    p.exp.simbins < 0 && perr(p, "Cannot compute samplingbincenter. Sampling-binning not set up properly")
+    p.exp.simbins < 0 &&
+        perr(p, "Cannot compute samplingbincenter. Sampling-binning not set up properly")
     sd = SmearData()
     set_up_smear_data!(sd, p.exp)
     return copy(sd.simbincenter)
@@ -388,8 +443,8 @@ end
 
 function interp_linear(p, xs, ys, x)
     i = interp_index(p, xs, x)
-    dx = xs[i+1] - xs[i]
-    return ys[i] + (ys[i+1] - ys[i]) * (x - xs[i]) / dx
+    dx = xs[i + 1] - xs[i]
+    return ys[i] + (ys[i + 1] - ys[i]) * (x - xs[i]) / dx
 end
 
 function natural_spline_moments(xs, ys)
@@ -397,32 +452,38 @@ function natural_spline_moments(xs, ys)
     M = zeros(n)
     n < 3 && return M
     h = diff(xs)
-    a = zeros(n - 2); b = zeros(n - 2); c = zeros(n - 2); r = zeros(n - 2)
-    for i in 2:n-1
+    a = zeros(n - 2)
+    b = zeros(n - 2)
+    c = zeros(n - 2)
+    r = zeros(n - 2)
+    for i = 2:(n - 1)
         k = i - 1
-        a[k] = h[i-1]; b[k] = 2 * (h[i-1] + h[i]); c[k] = h[i]
-        r[k] = 6 * ((ys[i+1] - ys[i]) / h[i] - (ys[i] - ys[i-1]) / h[i-1])
+        a[k] = h[i - 1]
+        b[k] = 2 * (h[i - 1] + h[i])
+        c[k] = h[i]
+        r[k] = 6 * ((ys[i + 1] - ys[i]) / h[i] - (ys[i] - ys[i - 1]) / h[i - 1])
     end
     # Thomas algorithm
-    for k in 2:n-2
-        w = a[k] / b[k-1]
-        b[k] -= w * c[k-1]
-        r[k] -= w * r[k-1]
+    for k = 2:(n - 2)
+        w = a[k] / b[k - 1]
+        b[k] -= w * c[k - 1]
+        r[k] -= w * r[k - 1]
     end
     sol = zeros(n - 2)
     sol[end] = r[end] / b[end]
-    for k in n-3:-1:1
-        sol[k] = (r[k] - c[k] * sol[k+1]) / b[k]
+    for k = (n - 3):-1:1
+        sol[k] = (r[k] - c[k] * sol[k + 1]) / b[k]
     end
-    M[2:n-1] .= sol
+    M[2:(n - 1)] .= sol
     return M
 end
 
 function interp_cspline(p, xs, ys, M, x)
     i = interp_index(p, xs, x)
-    h = xs[i+1] - xs[i]
-    A = (xs[i+1] - x) / h; B = (x - xs[i]) / h
-    return A * ys[i] + B * ys[i+1] + ((A^3 - A) * M[i] + (B^3 - B) * M[i+1]) * h^2 / 6
+    h = xs[i + 1] - xs[i]
+    A = (xs[i + 1] - x) / h
+    B = (x - xs[i]) / h
+    return A * ys[i] + B * ys[i + 1] + ((A^3 - A) * M[i] + (B^3 - B) * M[i + 1]) * h^2 / 6
 end
 
 # A right-hand side: number, list, `a : b` pair, or comma-separated list
@@ -435,7 +496,8 @@ function parse_rhs(p::AEDLParser)
         elseif isop(peek(p), ",")
             out = [v]
             while isop(peek(p), ",")
-                advance!(p); skipnl!(p)
+                advance!(p)
+                skipnl!(p)
                 (peek(p).kind == :nl || peek(p).kind == :eof) && break
                 push!(out, scalar(p, parse_expr(p)))
             end
@@ -524,7 +586,8 @@ function parse_statement!(p::AEDLParser)
         p.lists[t.text] = v isa Float64 ? [v] : v isa Tuple ? collect(v) : copy(v)
         end_of_statement!(p)
     elseif t.kind == :ident && isop(peekk(p), "=") && !aedl_isfunction(t.text)
-        advance!(p); advance!(p)
+        advance!(p)
+        advance!(p)
         p.vars[t.text] = scalar(p, parse_expr(p))
         end_of_statement!(p)
     else
@@ -591,7 +654,8 @@ function ensure_smear!(p::AEDLParser, k)
     while length(e.smear_data) < k
         push!(e.smear_data, SmearData())
         push!(e.smear, Vector{Float64}[])
-        push!(e.lowrange, Int[]); push!(e.uprange, Int[])
+        push!(e.lowrange, Int[])
+        push!(e.uprange, Int[])
         push!(e.user_smear_given, false)
     end
 end
@@ -599,7 +663,8 @@ end
 function group_start!(p::AEDLParser, gid)
     if gid == "rule"
         r = ensure_rule!(p, p.loc_count)
-        r.errordim_sys_on = -1; r.errordim_sys_off = -1
+        r.errordim_sys_on = -1
+        r.errordim_sys_off = -1
     elseif gid == "channel"
         ensure_channel!(p, p.loc_count)
     elseif gid == "energy"
@@ -613,24 +678,33 @@ function group_start!(p::AEDLParser, gid)
 end
 
 function group_end!(p::AEDLParser, gid)
-    e = p.exp; k = p.loc_count
+    e = p.exp
+    k = p.loc_count
     if gid == "energy"
         e.smear_data[k] = p.ibf
     elseif gid == "flux" || gid == "nuflux"
         if gid == "flux"
-            glb_error("The 'flux' directive is deprecated.\nThe flux normalization may not be what you expect.\nPlease, consult the manual!")
+            glb_error(
+                "The 'flux' directive is deprecated.\nThe flux normalization may not be what you expect.\nPlease, consult the manual!",
+            )
             p.flt.builtin <= 0 && (p.flt.builtin = GLB_OLD_NORM)
         end
-        while length(e.fluxes) < k; push!(e.fluxes, Flux()); end
+        while length(e.fluxes) < k
+            push!(e.fluxes, Flux())
+        end
         e.fluxes[k] = p.flt
     elseif gid == "cross"
-        while length(e.xsecs) < k; push!(e.xsecs, XSec()); end
+        while length(e.xsecs) < k
+            push!(e.xsecs, XSec())
+        end
         e.xsecs[k] = p.xsc
     elseif gid == "rule"
         r = e.rules[k]
-        r.sys_on_string === nothing && r.errordim_sys_on >= 0 &&
+        r.sys_on_string === nothing &&
+            r.errordim_sys_on >= 0 &&
             (r.sys_on_string = convert_errordim(r.errordim_sys_on))
-        r.sys_off_string === nothing && r.errordim_sys_off >= 0 &&
+        r.sys_off_string === nothing &&
+            r.errordim_sys_off >= 0 &&
             (r.sys_off_string = convert_errordim(r.errordim_sys_off))
     end
 end
@@ -670,7 +744,8 @@ end
 const GMAX = 1e100
 
 function set_global!(p::AEDLParser, t::Token, v)
-    e = p.exp; name = t.text
+    e = p.exp
+    name = t.text
     if name == "\$parent_energy"
         e.emax = check_range(p, name, asnum(p, v), 0, GMAX)
     elseif name == "\$target_mass"
@@ -734,21 +809,25 @@ function name_value(p::AEDLParser)
 end
 
 function parse_rule_parts(p::AEDLParser)
-    coeffs = Float64[]; chans = Int[]
+    coeffs = Float64[]
+    chans = Int[]
     while true
         c = scalar(p, parse_expr(p))
         peek(p).kind == :rulemult || perr(p, "Expected '@' in rule")
         advance!(p)
         ch = scalar(p, parse_expr(p))
-        push!(coeffs, c); push!(chans, Int(ch))
+        push!(coeffs, c)
+        push!(chans, Int(ch))
         isop(peek(p), ":") || break
-        advance!(p); skipnl!(p)
+        advance!(p)
+        skipnl!(p)
     end
     return coeffs, chans
 end
 
 function parse_energy_matrix!(p::AEDLParser)
-    e = p.exp; k = p.loc_count
+    e = p.exp
+    k = p.loc_count
     rows = Vector{Float64}[]
     while true
         skipnl!(p)
@@ -764,21 +843,29 @@ function parse_energy_matrix!(p::AEDLParser)
         end
     end
     mat = Vector{Vector{Float64}}(undef, length(rows))
-    low = zeros(Int, length(rows)); up = zeros(Int, length(rows))
+    low = zeros(Int, length(rows))
+    up = zeros(Int, length(rows))
     for (l, r) in enumerate(rows)
         length(r) < 2 && perr(p, "In @energy number $k: sublist $(l-1) is too short")
-        v1 = Int(r[1]); v2 = Int(r[2])
+        v1 = Int(r[1])
+        v2 = Int(r[2])
         ok = v1 >= 0 && v2 >= v1 && v2 - v1 == length(r) - 3 && (e.simbins == -1 || v2 <= e.simbins)
         ok || perr(p, "Value for ranges in smear out of range")
-        low[l] = v1 + 1; up[l] = v2 + 1
+        low[l] = v1 + 1
+        up[l] = v2 + 1
         mat[l] = r[3:end]
     end
-    e.smear[k] = mat; e.lowrange[k] = low; e.uprange[k] = up
+    e.smear[k] = mat
+    e.lowrange[k] = low
+    e.uprange[k] = up
     e.user_smear_given[k] = true
 end
 
 function parse_local!(p::AEDLParser, t::Token)
-    e = p.exp; k = p.loc_count; ctx = p.context; name = t.text
+    e = p.exp
+    k = p.loc_count
+    ctx = p.context
+    name = t.text
     if ctx == "rule"
         r = e.rules[k]
         if name == "@signal"
@@ -793,10 +880,12 @@ function parse_local!(p::AEDLParser, t::Token)
             v = parse_rhs(p)
             v isa Tuple || perr(p, "$name expects a pair a : b")
             check_range(p, name, v[1], 0, name == "@energy_window" ? GMAX : 100)
-            target = name == "@signalerror" ? r.signal_errors :
-                     name == "@backgrounderror" ? r.bg_errors :
-                     name == "@backgroundcenter" ? r.bg_centers : r.energy_window
-            target[1] = v[1]; target[2] = v[2]
+            target =
+                name == "@signalerror" ? r.signal_errors :
+                name == "@backgrounderror" ? r.bg_errors :
+                name == "@backgroundcenter" ? r.bg_centers : r.energy_window
+            target[1] = v[1]
+            target[2] = v[2]
         elseif name == "@sys_on_errors"
             r.sys_on_errors = aslist(p, parse_rhs(p))
         elseif name == "@sys_off_errors"
@@ -810,13 +899,17 @@ function parse_local!(p::AEDLParser, t::Token)
         end
     elseif ctx == "channel"
         if name == "@channel"
-            fl = name_value(p); expect_op!(p, ":")
+            fl = name_value(p)
+            expect_op!(p, ":")
             pm = advance!(p)
             cp = isop(pm, "+") ? 1 : isop(pm, "-") ? -1 : perr(p, "Expected + or -", pm)
             expect_op!(p, ":")
-            ini = flavour_of(p, advance!(p)); expect_op!(p, ":")
-            fin = flavour_of(p, advance!(p)); expect_op!(p, ":")
-            xs = name_value(p); expect_op!(p, ":")
+            ini = flavour_of(p, advance!(p))
+            expect_op!(p, ":")
+            fin = flavour_of(p, advance!(p))
+            expect_op!(p, ":")
+            xs = name_value(p)
+            expect_op!(p, ":")
             en = name_value(p)
             e.channels[k] = Channel(fl, cp, ini, fin, xs, en)
         elseif name == "@pre_smearing_efficiencies"
@@ -893,7 +986,7 @@ function parse_aedl_file(path::AbstractString)
         hdr = String(read(io, min(8, filesize(path))))
         hdr == "%!GLoBES" || throw(AEDLError("Not a GLoBES file: $path"))
     end
-    toks = aedl_tokenize(path; display_name=path)
+    toks = aedl_tokenize(path; display_name = path)
     p = new_parser(toks, path)
     return parse_aedl!(p)
 end
@@ -903,7 +996,8 @@ end
 
 Predefine a variable that AEDL files read later can use, e.g. `BASELINE`.
 """
-glbDefineAEDLVariable(name::AbstractString, value::Real) = (aedl_presym_vars[String(name)] = Float64(value); nothing)
+glbDefineAEDLVariable(name::AbstractString, value::Real) =
+    (aedl_presym_vars[String(name)] = Float64(value); nothing)
 
 """
     glbDefineAEDLList(name, list)
@@ -923,6 +1017,7 @@ Remove all variables and lists defined with `glbDefineAEDLVariable` and
 `glbDefineAEDLList`.
 """
 function glbClearAEDLVariables()
-    empty!(aedl_presym_vars); empty!(aedl_presym_lists)
+    empty!(aedl_presym_vars)
+    empty!(aedl_presym_lists)
     nothing
 end

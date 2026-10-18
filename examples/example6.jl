@@ -16,7 +16,6 @@ const GLB_SIGMA_E = 7        # Index of non-standard parameter sigma_E
 const MYFILE1 = "test6a.dat"
 const MYFILE2 = "test6b.dat"
 
-
 #  U S E R - D E F I N E D   P R O B A B I L I T Y   E N G I N E
 
 # Parameters of the engine, in GeV² for the mass splittings
@@ -79,7 +78,7 @@ function my_probability_matrix(P, cp_sign, E, psteps, length, density, filter_si
 
     # Calculate total baseline
     L = 0.0
-    for i in 1:psteps
+    for i = 1:psteps
         L += length[i]
     end
     L = GLB_KM_TO_EV(L) * 1.0e9      # Convert to GeV⁻¹
@@ -95,13 +94,14 @@ function my_probability_matrix(P, cp_sign, E, psteps, length, density, filter_si
     D21 = exp(-(Delta21 * t)^2)
     D31 = exp(-(Delta31 * t)^2)
     D32 = exp(-(Delta32 * t)^2)
-    P[1, 1] = c13^4 * (1 - 2.0 * (s12 * c12)^2 * (1 - D21 * cos(2.0 * Delta21))) +
-              2.0 * (s13 * c13)^2 * (D31 * c12^2 * cos(2.0 * Delta31) +
-                                     D32 * s12^2 * cos(2.0 * Delta32)) +
-              s13^4
+    P[1, 1] =
+        c13^4 * (1 - 2.0 * (s12 * c12)^2 * (1 - D21 * cos(2.0 * Delta21))) +
+        2.0 *
+        (s13 * c13)^2 *
+        (D31 * c12^2 * cos(2.0 * Delta31) + D32 * s12^2 * cos(2.0 * Delta32)) +
+        s13^4
     return 0
 end
-
 
 #  M A I N   P R O G R A M
 
@@ -120,11 +120,13 @@ function main()
 
     # Register non-standard probability engine. This has to be done
     # before any calls to glbAllocParams() or glbAllocProjection()
-    glbRegisterProbabilityEngine(7,      # Number of parameters
-                                 my_probability_matrix,
-                                 my_set_oscillation_parameters,
-                                 my_get_oscillation_parameters,
-                                 nothing)
+    glbRegisterProbabilityEngine(
+        7,      # Number of parameters
+        my_probability_matrix,
+        my_set_oscillation_parameters,
+        my_get_oscillation_parameters,
+        nothing,
+    )
 
     # Initialize reactor experiment
     glbInitExperiment(joinpath(@__DIR__, "Reactor1.glb"))
@@ -135,12 +137,26 @@ function main()
     input_errors = glbAllocParams()
     th13_sigma_projection = glbAllocProjection()
 
-    glbDefineParams(true_values, true_theta12, true_theta13, true_theta23,
-                    true_deltacp, true_sdm, true_ldm)
+    glbDefineParams(
+        true_values,
+        true_theta12,
+        true_theta13,
+        true_theta23,
+        true_deltacp,
+        true_sdm,
+        true_ldm,
+    )
     glbSetOscParams(true_values, true_sigma_E, GLB_SIGMA_E)   # Non-standard parameter
     glbSetDensityParams(true_values, 1.0, GLB_ALL)
-    glbDefineParams(test_values, true_theta12, true_theta13, true_theta23,
-                    true_deltacp, true_sdm, true_ldm)
+    glbDefineParams(
+        test_values,
+        true_theta12,
+        true_theta13,
+        true_theta23,
+        true_deltacp,
+        true_sdm,
+        true_ldm,
+    )
     glbSetOscParams(test_values, true_sigma_E, GLB_SIGMA_E)   # Non-standard parameter
     glbSetDensityParams(test_values, 1.0, GLB_ALL)
 
@@ -149,8 +165,15 @@ function main()
     glbSetRates()
 
     # Set starting values and input errors for all projections
-    glbDefineParams(input_errors, 0.1 * true_theta12, 0.0, 0.15 * true_theta23,
-                    0.0, 0.05 * true_sdm, 0.05 * true_ldm)
+    glbDefineParams(
+        input_errors,
+        0.1 * true_theta12,
+        0.0,
+        0.15 * true_theta23,
+        0.0,
+        0.05 * true_sdm,
+        0.05 * true_ldm,
+    )
     glbSetOscParams(input_errors, 0.0, GLB_SIGMA_E)      # Non-standard parameter
     glbSetDensityParams(input_errors, 0.05, GLB_ALL)
     glbSetCentralValues(true_values)
@@ -177,8 +200,15 @@ function main()
 
     # Set two-parameter projection onto s22th13 and sigma_E, marginalizing
     # over all other parameters except delta_CP and th23, which do not enter P_ee
-    glbDefineProjection(th13_sigma_projection, GLB_FREE, GLB_FIXED, GLB_FIXED,
-                        GLB_FIXED, GLB_FREE, GLB_FREE)
+    glbDefineProjection(
+        th13_sigma_projection,
+        GLB_FREE,
+        GLB_FIXED,
+        GLB_FIXED,
+        GLB_FIXED,
+        GLB_FREE,
+        GLB_FREE,
+    )
     glbSetDensityProjectionFlag(th13_sigma_projection, GLB_FIXED, GLB_ALL)
     glbSetProjectionFlag(th13_sigma_projection, GLB_FIXED, GLB_SIGMA_E)  # Non-standard parameter
     glbSetProjection(th13_sigma_projection)

@@ -41,11 +41,11 @@ function main()
 
     # Return some low level information
     @printf(stream, "\nOscillation probabilities in vacuum: ")
-    for i in 1:3
+    for i = 1:3
         @printf(stream, "1->%i: %g ", i, glbVacuumProbability(1, i, +1, 50, 3000))
     end
     @printf(stream, "\nOscillation probabilities in matter: ")
-    for i in 1:3
+    for i = 1:3
         @printf(stream, "1->%i: %g ", i, glbProfileProbability(1, 1, i, +1, 50))
     end
     @printf(stream, "\n\n")
@@ -63,10 +63,11 @@ function main()
     @printf(stream, "This we would have from the CP-even appearance channel only: %g\n\n", chi2)
 
     # What would be obtain from the appearance channels only?
-    chi2 = glbChiSys(fit_values, GLB_ALL, 1) +
-           glbChiSys(fit_values, GLB_ALL, 2) +
-           glbChiSys(fit_values, GLB_ALL, 3) +
-           glbChiSys(fit_values, GLB_ALL, 4)
+    chi2 =
+        glbChiSys(fit_values, GLB_ALL, 1) +
+        glbChiSys(fit_values, GLB_ALL, 2) +
+        glbChiSys(fit_values, GLB_ALL, 3) +
+        glbChiSys(fit_values, GLB_ALL, 4)
     @printf(stream, "The sum over all rules gives again: %g\n\n", chi2)
 
     # Prepare minimizers: Set errors for external parameters:
@@ -81,8 +82,11 @@ function main()
     @printf(stream, "chi2 with correlations: %g \n", chi2)
     @printf(stream, "Position of minimum: theta12,theta13,theta23,delta,sdm,ldm,rho\n")
     glbPrintParams(stream, minimum)
-    @printf(stream, "Note that s22theta13 is unchanged/kept fixed: %g! \n\n",
-            sin(2 * glbGetOscParams(minimum, GLB_THETA_13))^2)
+    @printf(
+        stream,
+        "Note that s22theta13 is unchanged/kept fixed: %g! \n\n",
+        sin(2 * glbGetOscParams(minimum, GLB_THETA_13))^2
+    )
 
     # Check what the difference is if we keep in addition deltacp fixed.
     # This corresponds to projection onto theta13-deltacp-plane
@@ -92,8 +96,15 @@ function main()
     # Similarly: what if we only take into account correlation with deltacp?
     # For this, we need an arbitrary user-defined projection:
     myprojection = glbAllocProjection()
-    glbDefineProjection(myprojection, GLB_FIXED, GLB_FIXED, GLB_FIXED, GLB_FREE,
-                        GLB_FIXED, GLB_FIXED)
+    glbDefineProjection(
+        myprojection,
+        GLB_FIXED,
+        GLB_FIXED,
+        GLB_FIXED,
+        GLB_FREE,
+        GLB_FIXED,
+        GLB_FIXED,
+    )
     glbSetDensityProjectionFlag(myprojection, GLB_FREE, GLB_ALL)
     glbSetProjection(myprojection)
     chi2 = glbChiNP(fit_values, minimum, GLB_ALL)
@@ -180,8 +191,12 @@ function main()
     chi2sum = glbChiTheta13(fit_values, minimum, GLB_ALL)
     @printf(stream, "\nchi2 with correlations for combination: %g \n", chi2sum)
     glbPrintParams(stream, minimum)
-    @printf(stream, "\nThe sum of the two chi2s is %g, whereas the total chi2 is %g !\n\n",
-            chi2 + chi2b, chi2sum)
+    @printf(
+        stream,
+        "\nThe sum of the two chi2s is %g, whereas the total chi2 is %g !\n\n",
+        chi2 + chi2b,
+        chi2sum
+    )
 
     # Find sgn-degeneracy for 3000km experiments and test if it is still there for comb.
     glbDefineParams(input_errors, theta12 * 0.1, theta13, theta23, deltacp, sdm * 0.1, ldm / 3)

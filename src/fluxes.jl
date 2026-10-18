@@ -25,21 +25,25 @@ function glb_set_max_energy(en)
 end
 
 function fastflux_mu(en, baseline)
-    rg = nufact_state.rgamma; beta = nufact_state.beta
+    rg = nufact_state.rgamma
+    beta = nufact_state.beta
     baseline *= 1000
     x_lab = 2 * en / MUON_MASS
     x = x_lab / (rg * (1 - beta))
     xmax = rg * (1 - beta)
-    x_lab <= xmax * (1 + 1e-12) ? rg * (1 - beta) / baseline / baseline / MUON_MASS * x * x / π * (3 - 2x) : 0.0
+    x_lab <= xmax * (1 + 1e-12) ?
+    rg * (1 - beta) / baseline / baseline / MUON_MASS * x * x / π * (3 - 2x) : 0.0
 end
 
 function fastflux_e(en, baseline)
-    rg = nufact_state.rgamma; beta = nufact_state.beta
+    rg = nufact_state.rgamma
+    beta = nufact_state.beta
     baseline *= 1000
     x_lab = 2 * en / MUON_MASS
     x = x_lab / (rg * (1 - beta))
     xmax = rg * (1 - beta)
-    x_lab <= xmax * (1 + 1e-12) ? rg * (1 - beta) / baseline / baseline / MUON_MASS * 6 * x * x / π * (1 - x) : 0.0
+    x_lab <= xmax * (1 + 1e-12) ?
+    rg * (1 - beta) / baseline / baseline / MUON_MASS * 6 * x * x / π * (1 - x) : 0.0
 end
 
 function nufact_flux(data::Flux, en, polarity, l, anti)
@@ -55,7 +59,8 @@ function bb_spectrum(gamma, end_point, enu)
     baseline = 1000.0
     ye = GLB_ELECTRON_MASS / (end_point + GLB_ELECTRON_MASS)
     # Phase space integral of beta decay (C GLoBES has log10 instead of log)
-    gye = (1 / 60) * (sqrt(1 - ye^2) * (2 - 9ye^2 - 8ye^4) + 15ye^4 * log(ye / (1 - sqrt(1 - ye^2))))
+    gye =
+        (1 / 60) * (sqrt(1 - ye^2) * (2 - 9ye^2 - 8ye^4) + 15ye^4 * log(ye / (1 - sqrt(1 - ye^2))))
     part = enu / (2 * gamma * (end_point + GLB_ELECTRON_MASS))
     part >= 1 && return 0.0
     root = (1 - part) * (1 - part) - ye * ye
@@ -80,15 +85,15 @@ function builtin_flux_setup!(data::Flux, flx, pl)
     end
     glb_set_max_energy(data.parent_energy)
     st = zeros(501, 7)
-    for i in 0:500
+    for i = 0:500
         e = i * de
-        st[i+1, 1] = e
-        st[i+1, 2] = flx(data, e, pl, 1, +1)
-        st[i+1, 3] = flx(data, e, pl, 2, +1)
-        st[i+1, 4] = flx(data, e, pl, 3, +1)
-        st[i+1, 5] = flx(data, e, pl, 1, -1)
-        st[i+1, 6] = flx(data, e, pl, 2, -1)
-        st[i+1, 7] = flx(data, e, pl, 3, -1)
+        st[i + 1, 1] = e
+        st[i + 1, 2] = flx(data, e, pl, 1, +1)
+        st[i + 1, 3] = flx(data, e, pl, 2, +1)
+        st[i + 1, 4] = flx(data, e, pl, 3, +1)
+        st[i + 1, 5] = flx(data, e, pl, 1, -1)
+        st[i + 1, 6] = flx(data, e, pl, 2, -1)
+        st[i + 1, 7] = flx(data, e, pl, 3, -1)
     end
     data.storage = st
 end
@@ -117,8 +122,8 @@ function load_table(file_name, rows)
         glb_error("Wrong format in file $file_name")
     end
     n = min(length(vals), rows * 7)
-    for k in 0:n-1
-        st[k ÷ 7 + 1, k % 7 + 1] = vals[k+1]
+    for k = 0:(n - 1)
+        st[k ÷ 7 + 1, k % 7 + 1] = vals[k + 1]
     end
     return st
 end
@@ -156,14 +161,15 @@ function glb_flux_calc(en, baseline, l, anti, data::Flux)
     part = flux_column(l, anti)
     # The table has NFLUX + 1 equidistant energies (C GLoBES divides by
     # NFLUX + 1, which evaluates the flux at 1.002 times the energy)
-    incre = (st[NFLUX+1, 1] - st[1, 1]) / NFLUX
+    incre = (st[NFLUX + 1, 1] - st[1, 1]) / NFLUX
     t = (en - st[1, 1]) / incre
     isfinite(t) || return 0.0
     lowerind = floor(Int, t)
     higherind = lowerind + 1
     res = 0.0
     if !(lowerind < 0 || higherind > NFLUX)
-        lo = st[lowerind+1, part]; hi = st[higherind+1, part]
+        lo = st[lowerind + 1, part]
+        hi = st[higherind + 1, part]
         res = ((hi - lo) * (((en - st[1, 1]) / incre) - lowerind) + lo) / baseline / baseline
     end
     return res * norm2(data.builtin) * data.time * data.target_power * data.stored_muons * data.norm
@@ -189,7 +195,8 @@ function glb_xsec_calc(enl, l, anti, data::XSec)
     higherind = lowerind + 1
     res = 0.0
     if !(lowerind < 0 || higherind > 1000)
-        lo = st[lowerind+1, part]; hi = st[higherind+1, part]
+        lo = st[lowerind + 1, part]
+        hi = st[higherind + 1, part]
         res = (hi - lo) * (((en - st[1, 1]) / incre) - lowerind) + lo
     end
     return res * enl

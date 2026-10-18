@@ -57,8 +57,13 @@ in_setup(f, s::Setup) = with_setup(() -> strict(f), s)
 
 function Base.show(io::IO, s::Setup)
     n = length(s.state.experiments)
-    print(io, "Setup(", n, n == 1 ? " experiment" : " experiments",
-          s === CURRENT_SETUP[] ? ", current)" : ")")
+    print(
+        io,
+        "Setup(",
+        n,
+        n == 1 ? " experiment" : " experiments",
+        s === CURRENT_SETUP[] ? ", current)" : ")",
+    )
 end
 
 # ---------------------------------------------------------------------------
@@ -67,11 +72,20 @@ end
 
 # Canonical names of the standard parameters and accepted ASCII spellings
 const PARAM_NAMES = (:θ12, :θ13, :θ23, :δ, :Δm21, :Δm31)
-const PARAM_ALIASES = Dict{Symbol,Symbol}(
-    :theta12 => :θ12, :theta13 => :θ13, :theta23 => :θ23,
-    :delta => :δ, :deltacp => :δ, :δCP => :δ, :dcp => :δ,
-    :dm21 => :Δm21, :dm31 => :Δm31, :Δm²21 => :Δm21, :Δm²31 => :Δm31,
-    :rho => :ρ)
+const PARAM_ALIASES = Dict{Symbol, Symbol}(
+    :theta12 => :θ12,
+    :theta13 => :θ13,
+    :theta23 => :θ23,
+    :delta => :δ,
+    :deltacp => :δ,
+    :δCP => :δ,
+    :dcp => :δ,
+    :dm21 => :Δm21,
+    :dm31 => :Δm31,
+    :Δm²21 => :Δm21,
+    :Δm²31 => :Δm31,
+    :rho => :ρ,
+)
 
 canonical(name::Symbol) = get(PARAM_ALIASES, name, name)
 
@@ -104,12 +118,18 @@ end
 function OscParams(; kwargs...)
     kw = Dict(canonical(k) => v for (k, v) in kwargs)
     missing_names = [n for n in (:θ12, :θ13, :θ23, :Δm21, :Δm31) if !haskey(kw, n)]
-    isempty(missing_names) ||
-        throw(ArgumentError("OscParams needs $(join(missing_names, ", ")); δ defaults to 0 and ρ to 1"))
+    isempty(missing_names) || throw(
+        ArgumentError("OscParams needs $(join(missing_names, ", ")); δ defaults to 0 and ρ to 1"),
+    )
     extra = get(kw, :extra, NamedTuple())
     for k in keys(kw)
-        k in PARAM_NAMES || k in (:ρ, :extra) ||
-            throw(ArgumentError("unknown oscillation parameter $k; use `extra` for non-standard parameters"))
+        k in PARAM_NAMES ||
+            k in (:ρ, :extra) ||
+            throw(
+                ArgumentError(
+                    "unknown oscillation parameter $k; use `extra` for non-standard parameters",
+                ),
+            )
     end
     vals = Float64[kw[:θ12], kw[:θ13], kw[:θ23], get(kw, :δ, 0.0), kw[:Δm21], kw[:Δm31]]
     append!(vals, Float64.(values(extra)))
@@ -117,15 +137,17 @@ function OscParams(; kwargs...)
 end
 
 function OscParams(p::OscParams; kwargs...)
-    vals = copy(p.values); ρ = copy(p.densities); extra_names = copy(p.extra_names)
+    vals = copy(p.values)
+    ρ = copy(p.densities)
+    extra_names = copy(p.extra_names)
     for (k, v) in kwargs
         k = canonical(k)
         if k == :ρ
             ρ = Float64.(vcat(v))
         elseif k == :extra
             for (n, x) in pairs(v)
-                n in extra_names ? (vals[6+findfirst(==(n), extra_names)] = x) :
-                                   (push!(extra_names, n); push!(vals, x))
+                n in extra_names ? (vals[6 + findfirst(==(n), extra_names)] = x) :
+                (push!(extra_names, n); push!(vals, x))
             end
         else
             vals[param_index(OscParams(vals, extra_names, ρ), k)] = v
@@ -144,16 +166,23 @@ function param_index(p::OscParams, name::Symbol)
 end
 
 # Mixing angles are often quoted as sin²θ or sin²2θ
-const DERIVED = Dict{Symbol,Tuple{Symbol,Function,Function}}(
+const DERIVED = Dict{Symbol, Tuple{Symbol, Function, Function}}(
     # name => (angle, angle -> value, value -> angle)
     Symbol("sin²θ12") => (:θ12, θ -> sin(θ)^2, x -> asin(sqrt(x))),
     Symbol("sin²θ13") => (:θ13, θ -> sin(θ)^2, x -> asin(sqrt(x))),
     Symbol("sin²θ23") => (:θ23, θ -> sin(θ)^2, x -> asin(sqrt(x))),
     Symbol("sin²2θ12") => (:θ12, θ -> sin(2θ)^2, x -> asin(sqrt(x)) / 2),
     Symbol("sin²2θ13") => (:θ13, θ -> sin(2θ)^2, x -> asin(sqrt(x)) / 2),
-    Symbol("sin²2θ23") => (:θ23, θ -> sin(2θ)^2, x -> asin(sqrt(x)) / 2))
-for (ascii, name) in (:sin2theta12 => "sin²θ12", :sin2theta13 => "sin²θ13", :sin2theta23 => "sin²θ23",
-                      :sin22theta12 => "sin²2θ12", :sin22theta13 => "sin²2θ13", :sin22theta23 => "sin²2θ23")
+    Symbol("sin²2θ23") => (:θ23, θ -> sin(2θ)^2, x -> asin(sqrt(x)) / 2),
+)
+for (ascii, name) in (
+    :sin2theta12 => "sin²θ12",
+    :sin2theta13 => "sin²θ13",
+    :sin2theta23 => "sin²θ23",
+    :sin22theta12 => "sin²2θ12",
+    :sin22theta13 => "sin²2θ13",
+    :sin22theta23 => "sin²2θ23",
+)
     PARAM_ALIASES[ascii] = Symbol(name)
 end
 
@@ -186,17 +215,21 @@ function with_param(p::OscParams, name::Symbol, value)
     return OscParams(p; (name => value,)...)
 end
 
-Base.:(==)(a::OscParams, b::OscParams) = a.values == b.values && a.extra_names == b.extra_names && a.densities == b.densities
+Base.:(==)(a::OscParams, b::OscParams) =
+    a.values == b.values && a.extra_names == b.extra_names && a.densities == b.densities
 Base.isapprox(a::OscParams, b::OscParams; kw...) =
-    a.extra_names == b.extra_names && isapprox(a.values, b.values; kw...) && isapprox(a.densities, b.densities; kw...)
+    a.extra_names == b.extra_names &&
+    isapprox(a.values, b.values; kw...) &&
+    isapprox(a.densities, b.densities; kw...)
 
 function Base.show(io::IO, p::OscParams)
     v = p.values
     @printf(io, "OscParams(θ12=%.5g, θ13=%.5g, θ23=%.5g, δ=%.5g, Δm21=%.5g, Δm31=%.5g", v[1:6]...)
     for (i, n) in enumerate(p.extra_names)
-        @printf(io, ", %s=%.5g", n, v[6+i])
+        @printf(io, ", %s=%.5g", n, v[6 + i])
     end
-    ρ = length(p.densities) == 1 ? @sprintf("%.5g", p.densities[1]) :
+    ρ =
+        length(p.densities) == 1 ? @sprintf("%.5g", p.densities[1]) :
         "[" * join((@sprintf("%.5g", x) for x in p.densities), ", ") * "]"
     print(io, ", ρ=", ρ, ")")
 end
@@ -211,7 +244,7 @@ function Base.show(io::IO, ::MIME"text/plain", p::OscParams)
     @printf(io, "  Δm21 = %.6g eV²\n", v[5])
     @printf(io, "  Δm31 = %.6g eV²\n", v[6])
     for (i, n) in enumerate(p.extra_names)
-        @printf(io, "  %s = %.6g\n", n, v[6+i])
+        @printf(io, "  %s = %.6g\n", n, v[6 + i])
     end
     print(io, "  ρ   = ", length(p.densities) == 1 ? p.densities[1] : p.densities)
 end
@@ -219,8 +252,11 @@ end
 # Conversion to and from the parameter vectors of the engine
 function to_glb(p::OscParams)
     st = state()
-    length(p.values) == st.oscp ||
-        throw(GLoBESError("the probability engine has $(st.oscp) parameters, these OscParams have $(length(p.values))"))
+    length(p.values) == st.oscp || throw(
+        GLoBESError(
+            "the probability engine has $(st.oscp) parameters, these OscParams have $(length(p.values))",
+        ),
+    )
     g = glbAllocParams()
     g.osc .= p.values
     n = length(st.experiments)
@@ -265,7 +301,7 @@ struct Experiment
     data::ExperimentData
 end
 
-function Experiment(file::AbstractString; setup::Setup=current_setup(), variables...)
+function Experiment(file::AbstractString; setup::Setup = current_setup(), variables...)
     exps = load_experiments(file; setup, variables...)
     length(exps) == 1 ||
         throw(GLoBESError("$file defines $(length(exps)) experiments; use load_experiments"))
@@ -277,20 +313,22 @@ end
 
 Load all experiments defined in an AEDL file; see [`Experiment`](@ref).
 """
-function load_experiments(file::AbstractString; setup::Setup=current_setup(), variables...)
+function load_experiments(file::AbstractString; setup::Setup = current_setup(), variables...)
     in_setup(setup) do
         vars, lists = copy(aedl_presym_vars), copy(aedl_presym_lists)
         try
             for (k, v) in variables
-                v isa AbstractVector ? glbDefineAEDLList("%" * lstrip(String(k), '%'), Float64.(v)) :
-                                       glbDefineAEDLVariable(String(k), Float64(v))
+                v isa AbstractVector ?
+                glbDefineAEDLList("%" * lstrip(String(k), '%'), Float64.(v)) :
+                glbDefineAEDLVariable(String(k), Float64(v))
             end
             n = length(state().experiments)
             status = glbInitExperiment(file)
             status == -2 && throw(GLoBESError("could not load $file"))
-            return [Experiment(setup, e) for e in state().experiments[n+1:end]]
+            return [Experiment(setup, e) for e in state().experiments[(n + 1):end]]
         finally
-            copy!(aedl_presym_vars, vars); copy!(aedl_presym_lists, lists)
+            copy!(aedl_presym_vars, vars)
+            copy!(aedl_presym_lists, lists)
         end
     end
 end
@@ -300,14 +338,16 @@ end
 
 All experiments of a setup, in the order they were loaded.
 """
-experiments(; setup::Setup=current_setup()) = [Experiment(setup, e) for e in setup.state.experiments]
+experiments(; setup::Setup = current_setup()) =
+    [Experiment(setup, e) for e in setup.state.experiments]
 
 """
     clear_experiments!(; setup=current_setup())
 
 Remove all experiments from a setup.
 """
-clear_experiments!(; setup::Setup=current_setup()) = (in_setup(glbClearExperimentList, setup); nothing)
+clear_experiments!(; setup::Setup = current_setup()) =
+    (in_setup(glbClearExperimentList, setup); nothing)
 
 # Position of an experiment in its setup, as used by the glb* functions
 function index(e::Experiment)
@@ -331,9 +371,22 @@ name(e::Experiment) = splitext(basename(e.data.filename))[1]
 
 function Base.show(io::IO, e::Experiment)
     d = e.data
-    print(io, "Experiment(\"", name(e), "\", L = ", d.baseline, " km, ",
-          d.numofbins, " bins from ", d.emin, " to ", d.emax, " GeV, ",
-          length(d.rules), length(d.rules) == 1 ? " rule)" : " rules)")
+    print(
+        io,
+        "Experiment(\"",
+        name(e),
+        "\", L = ",
+        d.baseline,
+        " km, ",
+        d.numofbins,
+        " bins from ",
+        d.emin,
+        " to ",
+        d.emax,
+        " GeV, ",
+        length(d.rules),
+        length(d.rules) == 1 ? " rule)" : " rules)",
+    )
 end
 
 function Base.show(io::IO, ::MIME"text/plain", e::Experiment)
@@ -371,8 +424,8 @@ target_mass!(e::Experiment, m::Real) = (on(i -> glbSetTargetMass(i, Float64(m)),
 
 Running time in years of one flux, or of all fluxes.
 """
-running_time(e::Experiment; flux::Integer=1) = e.data.fluxes[flux].time
-function running_time!(e::Experiment, t::Real; flux=:all)
+running_time(e::Experiment; flux::Integer = 1) = e.data.fluxes[flux].time
+function running_time!(e::Experiment, t::Real; flux = :all)
     on(e) do i
         for f in (flux === :all ? eachindex(e.data.fluxes) : (flux,))
             glbSetRunningTime(i, f, Float64(t))
@@ -388,8 +441,8 @@ end
 Source power (stored muons or ions per year, or beam power in MW; see the
 `@power` and `@stored_muons` entries of the AEDL file).
 """
-source_power(e::Experiment; flux::Integer=1) = e.data.fluxes[flux].target_power
-function source_power!(e::Experiment, p::Real; flux=:all)
+source_power(e::Experiment; flux::Integer = 1) = e.data.fluxes[flux].target_power
+function source_power!(e::Experiment, p::Real; flux = :all)
     on(e) do i
         for f in (flux === :all ? eachindex(e.data.fluxes) : (flux,))
             glbSetSourcePower(i, f, Float64(p))
@@ -418,7 +471,8 @@ See also [`prem_profile`](@ref) and [`average_profile`](@ref).
 """
 density_profile(e::Experiment) = (copy(e.data.lengthtab), copy(e.data.densitytab))
 function density_profile!(e::Experiment, lengths::AbstractVector, densities::AbstractVector)
-    length(lengths) == length(densities) || throw(ArgumentError("lengths and densities differ in length"))
+    length(lengths) == length(densities) ||
+        throw(ArgumentError("lengths and densities differ in length"))
     on(i -> glbSetProfileDataInExperiment(i, Float64.(lengths), Float64.(densities)), e)
     return e
 end
@@ -432,6 +486,7 @@ Matter density along a baseline of `L` km through the Earth (PREM): in
 """
 prem_profile(L::Real, layers::Integer) = glbStaceyProfile(Float64(L), layers)
 average_profile(L::Real) = glbAverageDensityProfile(Float64(L))
+@doc (@doc prem_profile) average_profile
 
 """
     rule_names(e) -> Vector{String}
@@ -454,14 +509,15 @@ end
 # A rule given by number or name
 rule_index(e::Experiment, r::Integer) =
     1 <= r <= length(e.data.rules) ? Int(r) : throw(GLoBESError("$(name(e)) has no rule $r"))
-function rule_index(e::Experiment, r::Union{AbstractString,Symbol})
+function rule_index(e::Experiment, r::Union{AbstractString, Symbol})
     i = findfirst(==(lstrip(String(r), '#')), rule_names(e))
-    i === nothing && throw(GLoBESError("$(name(e)) has no rule \"$r\"; it has $(join(rule_names(e), ", "))"))
+    i === nothing &&
+        throw(GLoBESError("$(name(e)) has no rule \"$r\"; it has $(join(rule_names(e), ", "))"))
     return i
 end
 channel_index(e::Experiment, c::Integer) =
     1 <= c <= length(e.data.channels) ? Int(c) : throw(GLoBESError("$(name(e)) has no channel $c"))
-function channel_index(e::Experiment, c::Union{AbstractString,Symbol})
+function channel_index(e::Experiment, c::Union{AbstractString, Symbol})
     i = findfirst(==(lstrip(String(c), '#')), channel_names(e))
     i === nothing && throw(GLoBESError("$(name(e)) has no channel \"$c\""))
     return i
@@ -477,7 +533,7 @@ end
 Compute the simulated ("true") event rates of all experiments for the
 oscillation parameters `truth`. Every χ² compares against these rates.
 """
-function simulate!(truth::OscParams; setup::Setup=current_setup())
+function simulate!(truth::OscParams; setup::Setup = current_setup())
     in_setup(setup) do
         isempty(state().experiments) && throw(GLoBESError("no experiments loaded"))
         g = to_glb(truth)
@@ -493,7 +549,7 @@ end
 
 The parameters passed to the last [`simulate!`](@ref).
 """
-function simulated_params(; setup::Setup=current_setup())
+function simulated_params(; setup::Setup = current_setup())
     g = setup.state.truth
     g === nothing && throw(GLoBESError("no data simulated yet; call simulate!"))
     return from_glb(g, OscParams(copy(g.osc), engine_param_names(setup), [1.0]))
@@ -510,30 +566,44 @@ predicted for `params`. Returns `(energy, width, signal, background, total)`;
 `total` is signal plus background (with the background normalisation of the
 rule) inside the rule's energy window and zero outside.
 """
-function event_rates(e::Experiment; rule=1)
+function event_rates(e::Experiment; rule = 1)
     on(e) do i
         r = rule_index(e, rule)
         d = e.data
         state().truth === nothing && throw(GLoBESError("no data simulated yet; call simulate!"))
-        (energy=bin_centers(e), width=bin_widths(e), signal=copy(d.SignalRates[r]),
-         background=d.rules[r].bg_centers[1] .* d.BackgroundRates[r], total=copy(d.rates0[r]))
+        (
+            energy = bin_centers(e),
+            width = bin_widths(e),
+            signal = copy(d.SignalRates[r]),
+            background = d.rules[r].bg_centers[1] .* d.BackgroundRates[r],
+            total = copy(d.rates0[r]),
+        )
     end
 end
 
-function event_rates(e::Experiment, params::OscParams; rule=1)
+function event_rates(e::Experiment, params::OscParams; rule = 1)
     on(e) do i
         r = rule_index(e, rule)
         d = e.data
         g = to_glb(params)
-        saved = glbAllocParams(); glbGetOscillationParameters(saved)
+        saved = glbAllocParams()
+        glbGetOscillationParameters(saved)
         try
             glbSetOscillationParameters(g)
             set_profile_scaling!(d, g.density[i])
             set_new_rates!(d)
-            sig = copy(d.rates1[r]); bg = d.rules[r].bg_centers[1] .* d.rates1BG[r]
+            sig = copy(d.rates1[r])
+            bg = d.rules[r].bg_centers[1] .* d.rates1BG[r]
             lo, hi = d.rules[r].energy_window_bins
-            total = zeros(length(sig)); total[lo:hi] .= sig[lo:hi] .+ bg[lo:hi]
-            (energy=bin_centers(e), width=bin_widths(e), signal=sig, background=bg, total=total)
+            total = zeros(length(sig))
+            total[lo:hi] .= sig[lo:hi] .+ bg[lo:hi]
+            (
+                energy = bin_centers(e),
+                width = bin_widths(e),
+                signal = sig,
+                background = bg,
+                total = total,
+            )
         finally
             glbSetOscillationParameters(saved)
         end
@@ -546,8 +616,8 @@ end
 
 Number of events of one rule in its energy window, signal plus background.
 """
-total_events(e::Experiment; rule=1) = sum(event_rates(e; rule).total)
-total_events(e::Experiment, params::OscParams; rule=1) = sum(event_rates(e, params; rule).total)
+total_events(e::Experiment; rule = 1) = sum(event_rates(e; rule).total)
+total_events(e::Experiment, params::OscParams; rule = 1) = sum(event_rates(e, params; rule).total)
 
 """
     channel_rates(e, channel; smeared=true) -> Vector{Float64}
@@ -555,8 +625,10 @@ total_events(e::Experiment, params::OscParams; rule=1) = sum(event_rates(e, para
 Simulated event rates of one channel, after (`smeared=true`, per energy bin)
 or before energy smearing (per sampling point).
 """
-channel_rates(e::Experiment, channel; smeared::Bool=true) =
-    on(i -> copy(glbGetChannelRatePtr(i, channel_index(e, channel), smeared ? GLB_POST : GLB_PRE)), e)
+channel_rates(e::Experiment, channel; smeared::Bool = true) = on(
+    i -> copy(glbGetChannelRatePtr(i, channel_index(e, channel), smeared ? GLB_POST : GLB_PRE)),
+    e,
+)
 
 """
     fit_rates(e; rule=1) -> (signal, background)
@@ -566,9 +638,9 @@ without systematics. For use inside user-defined χ² functions (see
 [`define_chi2`](@ref)); `background` is not yet multiplied by the background
 normalisation. The vectors are the engine's buffers: do not modify them.
 """
-function fit_rates(e::Experiment; rule=1)
+function fit_rates(e::Experiment; rule = 1)
     r = rule_index(e, rule)
-    return (signal=e.data.rates1[r], background=e.data.rates1BG[r])
+    return (signal = e.data.rates1[r], background = e.data.rates1BG[r])
 end
 
 """
@@ -577,7 +649,7 @@ end
 The simulated rates of a rule inside its energy window, signal plus
 background, as used by the χ² functions. The engine's buffer: do not modify.
 """
-true_rates(e::Experiment; rule=1) = e.data.rates0[rule_index(e, rule)]
+true_rates(e::Experiment; rule = 1) = e.data.rates0[rule_index(e, rule)]
 
 """
     energy_window(e; rule=1) -> (emin, emax)
@@ -586,20 +658,30 @@ true_rates(e::Experiment; rule=1) = e.data.rates0[rule_index(e, rule)]
 
 The energy window of the analysis of a rule, in GeV, and the bins in it.
 """
-energy_window(e::Experiment; rule=1) = Tuple(e.data.rules[rule_index(e, rule)].energy_window)
-function energy_window!(e::Experiment, lo::Real, hi::Real; rule=:all)
-    on(i -> glbSetEnergyWindow(i, rule === :all ? GLB_ALL : rule_index(e, rule), Float64(lo), Float64(hi)), e)
+energy_window(e::Experiment; rule = 1) = Tuple(e.data.rules[rule_index(e, rule)].energy_window)
+function energy_window!(e::Experiment, lo::Real, hi::Real; rule = :all)
+    on(
+        i -> glbSetEnergyWindow(
+            i,
+            rule === :all ? GLB_ALL : rule_index(e, rule),
+            Float64(lo),
+            Float64(hi),
+        ),
+        e,
+    )
     return e
 end
-energy_window_bins(e::Experiment; rule=1) = (b = e.data.rules[rule_index(e, rule)].energy_window_bins; b[1]:b[2])
+energy_window_bins(e::Experiment; rule = 1) =
+    (b = e.data.rules[rule_index(e, rule)].energy_window_bins; b[1]:b[2])
 
 # ---------------------------------------------------------------------------
 #  Probabilities
 # ---------------------------------------------------------------------------
 
-const FLAVOURS = Dict{Symbol,Int}(:e => 1, :μ => 2, :mu => 2, :τ => 3, :tau => 3)
+const FLAVOURS = Dict{Symbol, Int}(:e => 1, :μ => 2, :mu => 2, :τ => 3, :tau => 3)
 flavour(f::Integer) = 1 <= f <= 3 ? Int(f) : throw(ArgumentError("flavour must be 1, 2 or 3"))
-flavour(f::Symbol) = haskey(FLAVOURS, f) ? FLAVOURS[f] : throw(ArgumentError("unknown flavour $f; use :e, :μ or :τ"))
+flavour(f::Symbol) =
+    haskey(FLAVOURS, f) ? FLAVOURS[f] : throw(ArgumentError("unknown flavour $f; use :e, :μ or :τ"))
 
 """
     probability(params, from, to; E, L, ρ=0, antineutrino=false)
@@ -615,17 +697,26 @@ probability(truth, :μ, :e; E=2.0, L=1300, ρ=2.8)
 probability(truth, :μ, :e, dune; E=0.5:0.1:5, antineutrino=true)
 ```
 """
-function probability(params::OscParams, from, to; E, L::Real, ρ::Real=0.0,
-                     antineutrino::Bool=false, setup::Setup=current_setup())
+function probability(
+    params::OscParams,
+    from,
+    to;
+    E,
+    L::Real,
+    ρ::Real = 0.0,
+    antineutrino::Bool = false,
+    setup::Setup = current_setup(),
+)
     a, b, cp = flavour(from), flavour(to), antineutrino ? -1 : +1
     with_engine_params(params, setup) do
-        P(En) = ρ == 0 ? glbVacuumProbability(a, b, cp, En, Float64(L)) :
-                         glbConstantDensityProbability(a, b, cp, En, Float64(L), Float64(ρ))
+        P(En) =
+            ρ == 0 ? glbVacuumProbability(a, b, cp, En, Float64(L)) :
+            glbConstantDensityProbability(a, b, cp, En, Float64(L), Float64(ρ))
         E isa Number ? P(Float64(E)) : [P(Float64(x)) for x in E]
     end
 end
 
-function probability(params::OscParams, from, to, e::Experiment; E, antineutrino::Bool=false)
+function probability(params::OscParams, from, to, e::Experiment; E, antineutrino::Bool = false)
     a, b, cp = flavour(from), flavour(to), antineutrino ? -1 : +1
     with_engine_params(params, e.setup) do
         i = index(e)
@@ -637,10 +728,15 @@ end
 # Evaluate f with the engine's oscillation parameters set to params
 function with_engine_params(f, params::OscParams, setup::Setup)
     in_setup(setup) do
-        saved = glbAllocParams(); glbGetOscillationParameters(saved)
-        g = glbAllocParams(); g.osc .= params.values
-        length(params.values) == state().oscp ||
-            throw(GLoBESError("the probability engine has $(state().oscp) parameters, these OscParams have $(length(params.values))"))
+        saved = glbAllocParams()
+        glbGetOscillationParameters(saved)
+        g = glbAllocParams()
+        g.osc .= params.values
+        length(params.values) == state().oscp || throw(
+            GLoBESError(
+                "the probability engine has $(state().oscp) parameters, these OscParams have $(length(params.values))",
+            ),
+        )
         glbSetOscillationParameters(g)
         try
             return f()
@@ -663,15 +759,20 @@ parameters (`glbChiSys`). `experiment` is an [`Experiment`](@ref) or `:all`,
 `rule` a rule number or name or `:all`. `systematics=false` uses the rules'
 χ² functions without systematics (statistics only, by default).
 """
-function chi2(test::OscParams; experiment=:all, rule=:all, systematics::Bool=true,
-              setup::Setup=current_setup())
+function chi2(
+    test::OscParams;
+    experiment = :all,
+    rule = :all,
+    systematics::Bool = true,
+    setup::Setup = current_setup(),
+)
     setup = experiment === :all ? setup : experiment.setup
     in_setup(setup) do
         check_simulated()
         g = to_glb(test)
         exp_i = experiment === :all ? GLB_ALL : index(experiment)
-        rule_i = rule === :all ? GLB_ALL :
-                 experiment === :all ? Int(rule) : rule_index(experiment, rule)
+        rule_i =
+            rule === :all ? GLB_ALL : experiment === :all ? Int(rule) : rule_index(experiment, rule)
         systematics && return glbChiSys(g, exp_i, rule_i)
         saved = [r.sys_on_off for d in state().experiments for r in d.rules]
         try
@@ -708,8 +809,13 @@ struct FitResult
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::FitResult)
-    @printf(io, "FitResult: χ² = %.6g after %d evaluations, free: %s\n",
-            r.chi2, r.iterations, join(r.free, ", "))
+    @printf(
+        io,
+        "FitResult: χ² = %.6g after %d evaluations, free: %s\n",
+        r.chi2,
+        r.iterations,
+        join(r.free, ", ")
+    )
     show(io, MIME"text/plain"(), r.params)
 end
 
@@ -735,9 +841,16 @@ r = marginalize(OscParams(truth; δ=0); fixed=(:θ13, :δ), priors=(θ12=0.1trut
 r.chi2, r.params.θ23
 ```
 """
-function marginalize(test::OscParams; free=nothing, fixed=nothing, priors=NamedTuple(),
-                     centers=nothing, prior=nothing, experiment=:all,
-                     setup::Setup=current_setup())
+function marginalize(
+    test::OscParams;
+    free = nothing,
+    fixed = nothing,
+    priors = NamedTuple(),
+    centers = nothing,
+    prior = nothing,
+    experiment = :all,
+    setup::Setup = current_setup(),
+)
     setup = experiment === :all ? setup : experiment.setup
     in_setup(setup) do
         check_simulated()
@@ -746,7 +859,9 @@ function marginalize(test::OscParams; free=nothing, fixed=nothing, priors=NamedT
         g = to_glb(test)
         free_flags = projection_flags(test, free, fixed, n_exp)
         c = centers === nothing ? glbCopyParams(st.truth) : to_glb(centers)
-        err = glbAllocParams(); fill!(err.osc, 0.0); fill!(err.density, 0.0)
+        err = glbAllocParams()
+        fill!(err.osc, 0.0)
+        fill!(err.density, 0.0)
         for (k, σ) in pairs(priors)
             k = canonical(k)
             if k == :ρ
@@ -757,20 +872,28 @@ function marginalize(test::OscParams; free=nothing, fixed=nothing, priors=NamedT
         end
 
         # Save what the glb* layer has set, so that it is unchanged afterwards
-        saved_proj = (copy(st.para_tab), copy(st.index_tab), st.n_free, st.n_fix, copy(st.fix_params))
+        saved_proj =
+            (copy(st.para_tab), copy(st.index_tab), st.n_free, st.n_fix, copy(st.fix_params))
         saved_centers = glbCopyParams(st.central_values)
         saved_errors = glbCopyParams(st.input_errors)
-        saved_prior = (st.prior_func, st.starting_values_hook, st.input_errors_hook, st.prior_user_data)
+        saved_prior =
+            (st.prior_func, st.starting_values_hook, st.input_errors_hook, st.prior_user_data)
         try
             proj = glbAllocProjection()
-            proj.osc .= free_flags[1:st.oscp]; proj.density .= free_flags[st.oscp+1:end]
+            proj.osc .= free_flags[1:st.oscp]
+            proj.density .= free_flags[(st.oscp + 1):end]
             glbSetProjection(proj)
             glbSetCentralValues(c)
             glbSetInputErrors(err)
             if prior !== nothing
                 user = p -> Float64(prior(from_glb(p, test)))
-                glbRegisterPriorFunction((p, ud) -> builtin_prior_impl(p) + user(p), nothing, nothing)
-                glbSetCentralValues(c); glbSetInputErrors(err)
+                glbRegisterPriorFunction(
+                    (p, ud) -> builtin_prior_impl(p) + user(p),
+                    nothing,
+                    nothing,
+                )
+                glbSetCentralValues(c)
+                glbSetInputErrors(err)
             end
             out = glbAllocParams()
             exp_i = experiment === :all ? GLB_ALL : index(experiment)
@@ -782,7 +905,8 @@ function marginalize(test::OscParams; free=nothing, fixed=nothing, priors=NamedT
             names = [n for (n, f) in zip(free_names(test, n_exp), free_flags) if f == GLB_FREE]
             return FitResult(χ², from_glb(out, test), unique(names), abs(out.iterations))
         finally
-            st.prior_func, st.starting_values_hook, st.input_errors_hook, st.prior_user_data = saved_prior
+            st.prior_func, st.starting_values_hook, st.input_errors_hook, st.prior_user_data =
+                saved_prior
             st.para_tab, st.index_tab, st.n_free, st.n_fix, st.fix_params = saved_proj
             glbCopyParams(saved_centers, st.central_values)
             glbCopyParams(saved_errors, st.input_errors)
@@ -793,14 +917,17 @@ end
 free_names(test::OscParams, n_exp) = [PARAM_NAMES..., test.extra_names..., fill(:ρ, n_exp)...]
 
 function projection_flags(test::OscParams, free, fixed, n_exp)
-    free === nothing || fixed === nothing || throw(ArgumentError("give either free or fixed, not both"))
+    free === nothing ||
+        fixed === nothing ||
+        throw(ArgumentError("give either free or fixed, not both"))
     n = length(test.values)
     names = Set(canonical.(collect(something(free, fixed, ()))))
     for k in names
         k == :ρ || param_index(test, k)          # throws for unknown names
     end
-    flag(k) = free !== nothing ? (k in names ? GLB_FREE : GLB_FIXED) :
-              fixed !== nothing ? (k in names ? GLB_FIXED : GLB_FREE) : GLB_FREE
+    flag(k) =
+        free !== nothing ? (k in names ? GLB_FREE : GLB_FIXED) :
+        fixed !== nothing ? (k in names ? GLB_FIXED : GLB_FREE) : GLB_FREE
     return [[flag(k) for k in free_names(test, 0)]; fill(flag(:ρ), n_exp)]
 end
 
@@ -811,9 +938,11 @@ end
 systematics minimised separately for every rule at each step. `:hybrid`: one
 Powell minimisation over oscillation and systematics parameters together.
 """
-function minimizer!(kind::Symbol; setup::Setup=current_setup())
-    id = kind === :nested ? GLB_MIN_NESTED_POWELL : kind === :hybrid ? GLB_MIN_POWELL :
-         throw(ArgumentError("minimizer must be :nested or :hybrid"))
+function minimizer!(kind::Symbol; setup::Setup = current_setup())
+    id =
+        kind === :nested ? GLB_MIN_NESTED_POWELL :
+        kind === :hybrid ? GLB_MIN_POWELL :
+        throw(ArgumentError("minimizer must be :nested or :hybrid"))
     in_setup(() -> glbSelectMinimizer(id), setup)
     return nothing
 end
@@ -843,16 +972,32 @@ function chi2_scan(base::OscParams, x::Pair{Symbol}; kwargs...)
 end
 
 function chi2_scan(base::OscParams, x::Pair{Symbol}, y::Pair{Symbol}; kwargs...)
-    return [scan_point(with_param(with_param(base, x.first, u), y.first, v), (x.first, y.first); kwargs...)
-            for u in x.second, v in y.second]
+    return [
+        scan_point(
+            with_param(with_param(base, x.first, u), y.first, v),
+            (x.first, y.first);
+            kwargs...,
+        ) for u in x.second, v in y.second
+    ]
 end
 
-function scan_point(p::OscParams, scanned; free=nothing, fixed=nothing, experiment=:all,
-                    rule=:all, systematics=true, setup=current_setup(), fit_kwargs...)
+function scan_point(
+    p::OscParams,
+    scanned;
+    free = nothing,
+    fixed = nothing,
+    experiment = :all,
+    rule = :all,
+    systematics = true,
+    setup = current_setup(),
+    fit_kwargs...,
+)
     if free === nothing && fixed === nothing && isempty(fit_kwargs)
         return chi2(p; experiment, rule, systematics, setup)
     end
-    angles = Tuple(haskey(DERIVED, canonical(s)) ? DERIVED[canonical(s)][1] : canonical(s) for s in scanned)
+    angles = Tuple(
+        haskey(DERIVED, canonical(s)) ? DERIVED[canonical(s)][1] : canonical(s) for s in scanned
+    )
     if free !== nothing
         free = Tuple(setdiff(canonical.(collect(free)), angles))
     else
@@ -872,11 +1017,18 @@ end
 Switch the systematics of rules on or off. With systematics off, a rule uses
 its `@sys_off_function` (no nuisance parameters, by default).
 """
-function systematics!(e::Experiment, on_::Bool; rule=:all)
-    on(i -> glbSwitchSystematics(i, rule === :all ? GLB_ALL : rule_index(e, rule), on_ ? GLB_ON : GLB_OFF), e)
+function systematics!(e::Experiment, on_::Bool; rule = :all)
+    on(
+        i -> glbSwitchSystematics(
+            i,
+            rule === :all ? GLB_ALL : rule_index(e, rule),
+            on_ ? GLB_ON : GLB_OFF,
+        ),
+        e,
+    )
     return e
 end
-systematics!(on_::Bool; setup::Setup=current_setup()) =
+systematics!(on_::Bool; setup::Setup = current_setup()) =
     (in_setup(() -> glbSwitchSystematics(GLB_ALL, GLB_ALL, on_ ? GLB_ON : GLB_OFF), setup); nothing)
 
 """
@@ -889,18 +1041,29 @@ parameters. Built in: `"chiSpectrumTilt"`, `"chiSpectrumCalib"`,
 `"chiSpectrumOnly"`, `"chiTotalRatesTilt"`, `"chiNoSysSpectrum"`,
 `"chiNoSysTotalRates"`, `"chiZero"`; others with [`define_chi2`](@ref).
 """
-chi2_function(e::Experiment; rule=1, systematics::Bool=true) =
+chi2_function(e::Experiment; rule = 1, systematics::Bool = true) =
     on(i -> glbGetChiFunction(i, rule_index(e, rule), systematics ? GLB_ON : GLB_OFF), e)
 
-function chi2_function!(e::Experiment, name::AbstractString; rule=:all, errors=Float64[],
-                        systematics::Bool=true)
+function chi2_function!(
+    e::Experiment,
+    name::AbstractString;
+    rule = :all,
+    errors = Float64[],
+    systematics::Bool = true,
+)
     on(e) do i
-        st = glbSetChiFunction(i, rule === :all ? GLB_ALL : rule_index(e, rule),
-                               systematics ? GLB_ON : GLB_OFF, String(name), Float64.(errors))
+        st = glbSetChiFunction(
+            i,
+            rule === :all ? GLB_ALL : rule_index(e, rule),
+            systematics ? GLB_ON : GLB_OFF,
+            String(name),
+            Float64.(errors),
+        )
         st == 0 || throw(GLoBESError("could not set χ² function $name"))
     end
     return e
 end
+@doc (@doc chi2_function) chi2_function!
 
 """
     systematic_errors(e; rule=1, systematics=true) -> Vector{Float64}
@@ -908,11 +1071,18 @@ end
 
 Prior widths of the nuisance parameters of a rule's χ² function.
 """
-systematic_errors(e::Experiment; rule=1, systematics::Bool=true) =
+systematic_errors(e::Experiment; rule = 1, systematics::Bool = true) =
     on(i -> copy(glbGetSysErrorsListPtr(i, rule_index(e, rule), systematics ? GLB_ON : GLB_OFF)), e)
-function systematic_errors!(e::Experiment, errors; rule=:all, systematics::Bool=true)
-    on(i -> glbSetSysErrorsList(i, rule === :all ? GLB_ALL : rule_index(e, rule),
-                                systematics ? GLB_ON : GLB_OFF, Float64.(errors)), e)
+function systematic_errors!(e::Experiment, errors; rule = :all, systematics::Bool = true)
+    on(
+        i -> glbSetSysErrorsList(
+            i,
+            rule === :all ? GLB_ALL : rule_index(e, rule),
+            systematics ? GLB_ON : GLB_OFF,
+            Float64.(errors),
+        ),
+        e,
+    )
     return e
 end
 
@@ -934,8 +1104,10 @@ define_chi2("normOnly", 1) do e, rule, x, errors
 end
 ```
 """
-function define_chi2(f, name::AbstractString, n_params::Integer; setup::Setup=current_setup())
-    wrapper = (exp, rule, n, x, errors, ud) -> Float64(f(Experiment(setup, setup.state.experiments[exp]), rule, x, errors))
+function define_chi2(f, name::AbstractString, n_params::Integer; setup::Setup = current_setup())
+    wrapper =
+        (exp, rule, n, x, errors, ud) ->
+            Float64(f(Experiment(setup, setup.state.experiments[exp]), rule, x, errors))
     in_setup(() -> glbDefineChiFunction(wrapper, n_params, String(name)), setup)
     return nothing
 end
@@ -947,7 +1119,8 @@ The Poisson log-likelihood χ², `2(predicted - observed + observed log(observed
 of one bin, with the treatment of empty bins and vanishing predictions
 described in the manual.
 """
-poisson_chi2(observed::Real, predicted::Real) = glb_likelihood(Float64(observed), Float64(predicted))
+poisson_chi2(observed::Real, predicted::Real) =
+    glb_likelihood(Float64(observed), Float64(predicted))
 
 """
     energy_scale_shift(rates, b; centers, widths) -> Vector{Float64}
@@ -956,10 +1129,18 @@ Rates of a binned spectrum after an energy calibration error `b` (the true
 energy is `(1+b)` times the reconstructed one). See the manual for the
 method.
 """
-energy_scale_shift(rates::AbstractVector, b::Real; centers::AbstractVector, widths::AbstractVector) =
-    shift_energy_scale(Float64(b), rates, centers, widths)
-energy_scale_shift(e::Experiment, rates::AbstractVector, b::Real) =
-    shift_energy_scale(Float64(b), rates, e.data.smear_data[1].bincenter, e.data.smear_data[1].binsize)
+energy_scale_shift(
+    rates::AbstractVector,
+    b::Real;
+    centers::AbstractVector,
+    widths::AbstractVector,
+) = shift_energy_scale(Float64(b), rates, centers, widths)
+energy_scale_shift(e::Experiment, rates::AbstractVector, b::Real) = shift_energy_scale(
+    Float64(b),
+    rates,
+    e.data.smear_data[1].bincenter,
+    e.data.smear_data[1].binsize,
+)
 
 # ---------------------------------------------------------------------------
 #  Non-standard physics
@@ -978,14 +1159,15 @@ of layers with `lengths` in km and `densities` in g/cm³.
 Experiments loaded before the change keep working. Create `OscParams` with
 `extra=(σE=0.0,)` to set the additional parameters.
 """
-function probability_engine!(P!, extra=(); setup::Setup=current_setup())
+function probability_engine!(P!, extra = (); setup::Setup = current_setup())
     names = collect(Symbol, extra)
     current = Ref{OscParams}()
     template = OscParams(zeros(6 + length(names)), names, [1.0])
     set = (p, ud) -> (current[] = OscParams(copy(p.osc), names, [1.0]); 0)
     get = (p, ud) -> (isassigned(current) && (p.osc .= current[].values); 0)
-    prob = (P, cp, E, psteps, l, d, fs, ud) ->
-        (P!(P, current[], E, cp < 0, view(l, 1:psteps), view(d, 1:psteps)); 0)
+    prob =
+        (P, cp, E, psteps, l, d, fs, ud) ->
+            (P!(P, current[], E, cp < 0, view(l, 1:psteps), view(d, 1:psteps)); 0)
     in_setup(setup) do
         glbRegisterProbabilityEngine(length(template.values), prob, set, get)
         state().extra_names = names
@@ -994,7 +1176,7 @@ function probability_engine!(P!, extra=(); setup::Setup=current_setup())
     return nothing
 end
 
-function standard_engine!(; setup::Setup=current_setup())
+function standard_engine!(; setup::Setup = current_setup())
     in_setup(setup) do
         glbRegisterProbabilityEngine(6, nothing, nothing, nothing)
         state().extra_names = Symbol[]
@@ -1016,8 +1198,17 @@ resize_params!() = (state().truth = nothing)
 Neutrino flux of an experiment at energy `E` in GeV and distance `L` in km,
 in the units of the flux tables (see the manual).
 """
-flux(e::Experiment, E::Real; flux::Integer=1, flavour=:e, antineutrino::Bool=false, L::Real=baseline(e)) =
-    on(i -> glbFlux(i, flux, Float64(E), Float64(L), GLoBES.flavour(flavour), antineutrino ? -1 : +1), e)
+flux(
+    e::Experiment,
+    E::Real;
+    flux::Integer = 1,
+    flavour = :e,
+    antineutrino::Bool = false,
+    L::Real = baseline(e),
+) = on(
+    i -> glbFlux(i, flux, Float64(E), Float64(L), GLoBES.flavour(flavour), antineutrino ? -1 : +1),
+    e,
+)
 
 """
     cross_section(e, E; xsec=1, flavour=:e, antineutrino=false) -> Float64
@@ -1026,5 +1217,5 @@ Total cross section per target nucleon, in 10⁻³⁸ cm², of the cross section
 table `xsec` of an experiment at energy `E` in GeV. (The tables hold the cross
 section divided by energy, σ/E.)
 """
-cross_section(e::Experiment, E::Real; xsec::Integer=1, flavour=:e, antineutrino::Bool=false) =
+cross_section(e::Experiment, E::Real; xsec::Integer = 1, flavour = :e, antineutrino::Bool = false) =
     on(i -> glbXSection(i, xsec, Float64(E), GLoBES.flavour(flavour), antineutrino ? -1 : +1), e)

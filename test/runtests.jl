@@ -9,27 +9,35 @@ include("reference_values.jl")
 const DATADIR = joinpath(@__DIR__, "data")
 
 const SETUPS = [
-    ("NOvA",         ["NOvA.glb"],                   Pair{String,Float64}[]),
-    ("NOvA_prepost", ["NOvA_pre_post_smearing.glb"], Pair{String,Float64}[]),
-    ("T2K",          ["T2K.glb"],                    Pair{String,Float64}[]),
-    ("T2HK",         ["T2HK.glb"],                   Pair{String,Float64}[]),
-    ("NFstandard",   ["NFstandard.glb"],             Pair{String,Float64}[]),
-    ("NFvar",        ["NFvar.glb"],    ["BASELINE" => 3000.0, "emax" => 50.0]),
-    ("NF_hR_lT",     ["NF_hR_lT.glb"], ["BASELINE" => 4000.0, "emax" => 50.0]),
-    ("BB_350",       ["BB_350.glb"],                 Pair{String,Float64}[]),
-    ("BBvar_WC",     ["BBvar_WC.glb"],
-                     ["gammafactor" => 350.0, "baselinefactor" => 730.0 / 350.0, "EXP_FACTOR" => 1.0]),
-    ("Reactor1",     ["Reactor1.glb"],               Pair{String,Float64}[]),
-    ("Reactor2",     ["Reactor2.glb"],               Pair{String,Float64}[]),
-    ("DChooz",       ["D-Chooz_far.glb", "D-Chooz_near.glb"], Pair{String,Float64}[]),
+    ("NOvA", ["NOvA.glb"], Pair{String, Float64}[]),
+    ("NOvA_prepost", ["NOvA_pre_post_smearing.glb"], Pair{String, Float64}[]),
+    ("T2K", ["T2K.glb"], Pair{String, Float64}[]),
+    ("T2HK", ["T2HK.glb"], Pair{String, Float64}[]),
+    ("NFstandard", ["NFstandard.glb"], Pair{String, Float64}[]),
+    ("NFvar", ["NFvar.glb"], ["BASELINE" => 3000.0, "emax" => 50.0]),
+    ("NF_hR_lT", ["NF_hR_lT.glb"], ["BASELINE" => 4000.0, "emax" => 50.0]),
+    ("BB_350", ["BB_350.glb"], Pair{String, Float64}[]),
+    (
+        "BBvar_WC",
+        ["BBvar_WC.glb"],
+        ["gammafactor" => 350.0, "baselinefactor" => 730.0 / 350.0, "EXP_FACTOR" => 1.0],
+    ),
+    ("Reactor1", ["Reactor1.glb"], Pair{String, Float64}[]),
+    ("Reactor2", ["Reactor2.glb"], Pair{String, Float64}[]),
+    ("DChooz", ["D-Chooz_far.glb", "D-Chooz_near.glb"], Pair{String, Float64}[]),
 ]
 
 # chiSpectrumCalib is not compared with C: GLoBES.jl uses a different energy
 # scale shift (see "energy scale shift" below), and setups that use it are
 # switched to chiSpectrumTilt here and in make_reference.c.
-const ALT_CHI = ["chiSpectrumTilt" => [0.025, 0.01, 0.05, 0.01], "chiNoSysSpectrum" => Float64[],
-                 "chiSpectrumOnly" => [0.0], "chiTotalRatesTilt" => [0.025, 0.01, 0.05, 0.01],
-                 "chiNoSysTotalRates" => Float64[], "chiZero" => Float64[]]
+const ALT_CHI = [
+    "chiSpectrumTilt" => [0.025, 0.01, 0.05, 0.01],
+    "chiNoSysSpectrum" => Float64[],
+    "chiSpectrumOnly" => [0.0],
+    "chiTotalRatesTilt" => [0.025, 0.01, 0.05, 0.01],
+    "chiNoSysTotalRates" => Float64[],
+    "chiZero" => Float64[],
+]
 
 # Tolerances. Rates and χ² at fixed nuisance parameters must agree to rounding.
 # glbChiSys still minimizes over the systematics (Powell, TOLSYS = 1e-8), and
@@ -52,8 +60,9 @@ const RTOL_DCHOOZ = 3e-2
 # beam energy). GLoBES.jl fixes this, so where C gives the sentinel we only
 # require a finite χ².
 const C_SENTINEL = 1e99
-matches_c(x, key; rtol, atol=0.0) =
-    R[key] >= C_SENTINEL ? (isfinite(x) && -atol <= x < C_SENTINEL) : isapprox(x, R[key]; rtol, atol)
+matches_c(x, key; rtol, atol = 0.0) =
+    R[key] >= C_SENTINEL ? (isfinite(x) && -atol <= x < C_SENTINEL) :
+    isapprox(x, R[key]; rtol, atol)
 
 function define_params(th12, th13, th23, delta, dm21, dm31, rho)
     p = glbAllocParams()
@@ -64,8 +73,10 @@ end
 true_point() = define_params(asin(sqrt(0.307)), 0.149, asin(sqrt(0.55)), 1.2π, 7.4e-5, 2.5e-3, 1.0)
 test_point() = define_params(asin(sqrt(0.307)), 0.149, asin(sqrt(0.45)), 0.5π, 7.4e-5, 2.45e-3, 1.0)
 
-params_vector(p) = [[glbGetOscParams(p, i) for i in 1:6];
-                    [glbGetDensityParams(p, i) for i in 1:glbNumOfExps()]]
+params_vector(p) = [
+    [glbGetOscParams(p, i) for i = 1:6];
+    [glbGetDensityParams(p, i) for i = 1:glbNumOfExps()]
+]
 
 # example5.c of the C distribution: Double Chooz far/near with flux, fiducial
 # mass and energy calibration errors
@@ -82,11 +93,11 @@ function chiDCNorm(exp, rule, n_params, x, errors, user_data)
     nF = 1.0 + x[1] + x[2]
     nN = 1.0 + x[1] + x[3]
     chi2 = 0.0
-    for i in ew_low:ew_high
+    for i = ew_low:ew_high
         true_F[i] > 0 && (chi2 += (true_F[i] - nF * fit_F[i])^2 / true_F[i])
         true_N[i] > 0 && (chi2 += (true_N[i] - nN * fit_N[i])^2 / true_N[i])
     end
-    for i in 1:n_params
+    for i = 1:n_params
         chi2 += (x[i] / errors[i])^2
     end
     return chi2
@@ -105,9 +116,15 @@ function load_setup(files, vars)
 end
 
 function replace_calib()
-    for e in 1:glbNumOfExps(), r in 1:glbGetNumberOfRules(e)
+    for e = 1:glbNumOfExps(), r = 1:glbGetNumberOfRules(e)
         if glbGetChiFunction(e, r, GLB_ON) == "chiSpectrumCalib"
-            glbSetChiFunction(e, r, GLB_ON, "chiSpectrumTilt", copy(glbGetSysErrorsListPtr(e, r, GLB_ON)))
+            glbSetChiFunction(
+                e,
+                r,
+                GLB_ON,
+                "chiSpectrumTilt",
+                copy(glbGetSysErrorsListPtr(e, r, GLB_ON)),
+            )
         end
     end
 end
@@ -119,8 +136,15 @@ function run_setup(name, files, vars)
     @test glbNumOfExps() == length(files)
 
     p0, pt, fit = true_point(), test_point(), glbAllocParams()
-    err = define_params(0.1 * asin(sqrt(0.307)), 0, 0.1 * asin(sqrt(0.55)), 0, 0.05 * 7.4e-5,
-                        0.05 * 2.5e-3, 0.05)
+    err = define_params(
+        0.1 * asin(sqrt(0.307)),
+        0,
+        0.1 * asin(sqrt(0.55)),
+        0,
+        0.05 * 7.4e-5,
+        0.05 * 2.5e-3,
+        0.05,
+    )
     glbSetOscillationParameters(p0)
     glbSetRates()
     glbSetCentralValues(p0)
@@ -128,9 +152,9 @@ function run_setup(name, files, vars)
     glbSetStartingValues(p0)
 
     @testset "rates" begin
-        for e in 1:glbNumOfExps()
+        for e = 1:glbNumOfExps()
             @test glbGetBinCentersListPtr(e) ≈ R["$name/$e/bincenters"] rtol = RTOL_EXACT
-            for r in 1:glbGetNumberOfRules(e)
+            for r = 1:glbGetNumberOfRules(e)
                 k = "$name/$e/rule$r"
                 # C leaves the rule rate outside the energy window uninitialised
                 lo, hi = glbGetEnergyWindowBins(e, r)
@@ -140,50 +164,90 @@ function run_setup(name, files, vars)
                 @test glbTotalRuleRate(e, r, GLB_ALL, GLB_W_EFF, GLB_W_BG, GLB_W_COEFF, GLB_SIG) ≈
                       R["$k/total"] rtol = RTOL_EXACT
             end
-            for c in 1:glbGetNumberOfChannels(e)
-                @test glbGetChannelRatePtr(e, c, GLB_POST) ≈ R["$name/$e/channel$c/post"] rtol = RTOL_EXACT
+            for c = 1:glbGetNumberOfChannels(e)
+                @test glbGetChannelRatePtr(e, c, GLB_POST) ≈ R["$name/$e/channel$c/post"] rtol =
+                    RTOL_EXACT
             end
         end
     end
 
     @testset "chi2 without fit" begin
-        @test matches_c(glbChiSys(pt, GLB_ALL, GLB_ALL), "$name/chisys"; rtol = rtol_sys, atol = ATOL_SYS)
-        for e in 1:glbNumOfExps(), r in 1:glbGetNumberOfRules(e)
-            @test matches_c(glbChiSys(pt, e, r), "$name/$e/rule$r/chisys"; rtol = rtol_sys, atol = ATOL_SYS)
+        @test matches_c(
+            glbChiSys(pt, GLB_ALL, GLB_ALL),
+            "$name/chisys";
+            rtol = rtol_sys,
+            atol = ATOL_SYS,
+        )
+        for e = 1:glbNumOfExps(), r = 1:glbGetNumberOfRules(e)
+            @test matches_c(
+                glbChiSys(pt, e, r),
+                "$name/$e/rule$r/chisys";
+                rtol = rtol_sys,
+                atol = ATOL_SYS,
+            )
         end
         glbSwitchSystematics(GLB_ALL, GLB_ALL, GLB_OFF)
-        @test matches_c(glbChiSys(pt, GLB_ALL, GLB_ALL), "$name/chisys_off"; rtol = rtol_sys, atol = ATOL_SYS)
+        @test matches_c(
+            glbChiSys(pt, GLB_ALL, GLB_ALL),
+            "$name/chisys_off";
+            rtol = rtol_sys,
+            atol = ATOL_SYS,
+        )
         glbSwitchSystematics(GLB_ALL, GLB_ALL, GLB_ON)
     end
 
     @testset "chi2 with fit" begin
-        @test matches_c(glbChiTheta13(pt, fit, GLB_ALL), "$name/chitheta13"; rtol = rtol_fit, atol = ATOL_FIT)
+        @test matches_c(
+            glbChiTheta13(pt, fit, GLB_ALL),
+            "$name/chitheta13";
+            rtol = rtol_fit,
+            atol = ATOL_FIT,
+        )
         # where C's χ² is the 1e100 plateau, its fitted parameters are arbitrary
         chidelta = glbChiDelta(pt, fit, GLB_ALL)
         @test matches_c(chidelta, "$name/chidelta"; rtol = rtol_fit, atol = ATOL_FIT)
         R["$name/chidelta"] < C_SENTINEL &&
             @test params_vector(fit) ≈ R["$name/chidelta_fit"] rtol = RTOL_FIT_PARAMS
-        @test matches_c(glbChiTheta13Delta(pt, nothing, GLB_ALL), "$name/chitheta13delta"; rtol = rtol_fit, atol = ATOL_FIT)
+        @test matches_c(
+            glbChiTheta13Delta(pt, nothing, GLB_ALL),
+            "$name/chitheta13delta";
+            rtol = rtol_fit,
+            atol = ATOL_FIT,
+        )
 
         proj = glbAllocProjection()
         glbDefineProjection(proj, GLB_FIXED, GLB_FIXED, GLB_FREE, GLB_FIXED, GLB_FIXED, GLB_FREE)
         glbSetDensityProjectionFlag(proj, GLB_FREE, GLB_ALL)
         glbSetProjection(proj)
-        @test matches_c(glbChiNP(pt, nothing, GLB_ALL), "$name/chinp"; rtol = rtol_fit, atol = ATOL_FIT)
+        @test matches_c(
+            glbChiNP(pt, nothing, GLB_ALL),
+            "$name/chinp";
+            rtol = rtol_fit,
+            atol = ATOL_FIT,
+        )
     end
 
     if name != "DChooz"
         @testset "built-in chi2 functions" begin
             for (chi, errs) in ALT_CHI
                 glbSetChiFunction(GLB_ALL, GLB_ALL, GLB_ON, chi, errs)
-                @test matches_c(glbChiSys(pt, GLB_ALL, GLB_ALL), "$name/alt/$chi"; rtol = RTOL_SYS, atol = ATOL_SYS)
+                @test matches_c(
+                    glbChiSys(pt, GLB_ALL, GLB_ALL),
+                    "$name/alt/$chi";
+                    rtol = RTOL_SYS,
+                    atol = ATOL_SYS,
+                )
             end
             # At fixed nuisance parameters, with the fit rates of the last glbChiSys
             x = [0.01, -0.005, 0.02, 0.003]
-            for e in 1:glbNumOfExps(), r in 1:glbGetNumberOfRules(e), (chi, errs) in ALT_CHI
+            for e = 1:glbNumOfExps(), r = 1:glbGetNumberOfRules(e), (chi, errs) in ALT_CHI
                 f = glbGetChiFunctionPtr(chi)
-                @test matches_c(f(e, r, length(errs), x, errs, nothing), "$name/$e/rule$r/fixed/$chi";
-                                rtol = RTOL_EXACT, atol = ATOL_SYS)
+                @test matches_c(
+                    f(e, r, length(errs), x, errs, nothing),
+                    "$name/$e/rule$r/fixed/$chi";
+                    rtol = RTOL_EXACT,
+                    atol = ATOL_SYS,
+                )
             end
         end
     end
@@ -192,7 +256,7 @@ function run_setup(name, files, vars)
         glbSetTargetMass(1, 2.0 * glbGetTargetMass(1))
         glbSetRunningTime(1, 1, 0.5 * glbGetRunningTime(1, 1))
         glbSetRates()
-        for r in 1:glbGetNumberOfRules(1)
+        for r = 1:glbGetNumberOfRules(1)
             @test glbTotalRuleRate(1, r, GLB_ALL, GLB_W_EFF, GLB_W_BG, GLB_W_COEFF, GLB_SIG) ≈
                   R["$name/1/rule$r/total_scaled"] rtol = RTOL_EXACT
         end
@@ -208,17 +272,18 @@ cd(DATADIR) do
             energies = R["prob/energies"]
             load_setup(["NFstandard.glb"], [])
             glbSetOscillationParameters(true_point())
-            probs(f) = [f(a, b, cp, E) for cp in (+1, -1) for E in energies for a in 1:3 for b in 1:3]
+            probs(f) = [f(a, b, cp, E) for cp in (+1, -1) for E in energies for a = 1:3 for b = 1:3]
             @test probs((a, b, cp, E) -> glbVacuumProbability(a, b, cp, E, 1300.0)) ≈
                   R["prob/vacuum"] rtol = RTOL_EXACT atol = 1e-14
             @test probs((a, b, cp, E) -> glbConstantDensityProbability(a, b, cp, E, 1300.0, 2.8)) ≈
                   R["prob/constant"] rtol = RTOL_EXACT atol = 1e-14
-            @test probs((a, b, cp, E) -> glbProfileProbability(1, a, b, cp, E)) ≈
-                  R["prob/profile"] rtol = RTOL_EXACT atol = 1e-14
+            @test probs((a, b, cp, E) -> glbProfileProbability(1, a, b, cp, E)) ≈ R["prob/profile"] rtol =
+                RTOL_EXACT atol = 1e-14
 
             # Unitarity
-            for E in energies, cp in (+1, -1), a in 1:3
-                @test sum(glbConstantDensityProbability(a, b, cp, E, 1300.0, 2.8) for b in 1:3) ≈ 1 atol = 1e-12
+            for E in energies, cp in (+1, -1), a = 1:3
+                @test sum(glbConstantDensityProbability(a, b, cp, E, 1300.0, 2.8) for b = 1:3) ≈ 1 atol =
+                    1e-12
             end
         end
 
@@ -226,13 +291,33 @@ cd(DATADIR) do
             # Spectra with known bin integrals: G is the cumulative number of events
             # (zero outside the binned range), so a shift by b moves bin i to
             # G((1+b) hi) - G((1+b) lo)
-            binned(G, edges) = [G(edges[i+1]) - G(edges[i]) for i in 1:length(edges)-1]
-            centers(edges) = (edges[1:end-1] .+ edges[2:end]) ./ 2
-            equal = collect(range(0.5, 10.5, length=21))
-            unequal = [0.5, 1.5, 2.5, 3.0, 3.5, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 6.0, 6.5, 7.5, 8.5, 10.5]
-            spectra = [("peak", E -> 0.5 * erf((E - 5) / 1.5)),
-                       ("rising to the upper end", E -> E^3 / 300),
-                       ("falling from the lower end", E -> -exp(-E / 2))]
+            binned(G, edges) = [G(edges[i + 1]) - G(edges[i]) for i = 1:(length(edges) - 1)]
+            centers(edges) = (edges[1:(end - 1)] .+ edges[2:end]) ./ 2
+            equal = collect(range(0.5, 10.5, length = 21))
+            unequal = [
+                0.5,
+                1.5,
+                2.5,
+                3.0,
+                3.5,
+                4.0,
+                4.25,
+                4.5,
+                4.75,
+                5.0,
+                5.25,
+                5.5,
+                6.0,
+                6.5,
+                7.5,
+                8.5,
+                10.5,
+            ]
+            spectra = [
+                ("peak", E -> 0.5 * erf((E - 5) / 1.5)),
+                ("rising to the upper end", E -> E^3 / 300),
+                ("falling from the lower end", E -> -exp(-E / 2)),
+            ]
             for edges in (equal, unequal), (label, cdf) in spectra
                 G = E -> cdf(clamp(E, edges[1], edges[end]))
                 rates = binned(G, edges)
@@ -245,7 +330,8 @@ cd(DATADIR) do
                     # events are conserved, up to the resolution of the last bin
                     @test sum(out) ≈ sum(exact) rtol = (edges === equal ? 1e-3 : 5e-3)
                     # C GLoBES' linear interpolation is off by up to 44% here
-                    @test maximum(abs.(out .- exact)) <= (edges === equal ? 2e-3 : 5e-2) * maximum(exact)
+                    @test maximum(abs.(out .- exact)) <=
+                          (edges === equal ? 2e-3 : 5e-2) * maximum(exact)
                 end
             end
 
@@ -254,7 +340,8 @@ cd(DATADIR) do
             peak = binned(E -> 0.5 * erf((clamp(E, 0.5, 10.5) - 5) / 1.0), equal)
             shifted = b -> glbShiftEnergyScale(b, peak, 20, 0.5, 10.5)
             h = 1e-6
-            @test (shifted(h) .- shifted(0.0)) ./ h ≈ (shifted(0.0) .- shifted(-h)) ./ h rtol = 1e-3 atol = 1e-6
+            @test (shifted(h) .- shifted(0.0)) ./ h ≈ (shifted(0.0) .- shifted(-h)) ./ h rtol = 1e-3 atol =
+                1e-6
 
             # Shifting past the upper end must not create events (C doubles the last bin)
             flat = ones(20)
@@ -276,7 +363,13 @@ cd(DATADIR) do
 
         @testset "chiSpectrumCalib" begin
             load_setup(["NOvA.glb"], [])
-            glbSetChiFunction(GLB_ALL, GLB_ALL, GLB_ON, "chiSpectrumCalib", [0.025, 0.01, 0.05, 0.01])
+            glbSetChiFunction(
+                GLB_ALL,
+                GLB_ALL,
+                GLB_ON,
+                "chiSpectrumCalib",
+                [0.025, 0.01, 0.05, 0.01],
+            )
             glbSetOscillationParameters(true_point())
             glbSetRates()
             pt = test_point()
@@ -288,12 +381,21 @@ cd(DATADIR) do
             sig, bg = glbGetSignalFitRatePtr(1, 1), glbGetBGFitRatePtr(1, 1)
             bg_center = glbGetBGCenters(1, 1)[1]
             lo, hi = glbGetEnergyWindowBins(1, 1)
-            expected = sum(glb_likelihood(true_rates[i], 1.01 * sig[i] + 1.02 * bg_center * bg[i]) for i in lo:hi) +
-                       (0.01 / 0.025)^2 + (0.02 * bg_center / 0.05)^2
-            @test glbGetChiFunctionPtr("chiSpectrumCalib")(1, 1, 4, x, errs, nothing) ≈ expected rtol = 1e-12
+            expected =
+                sum(
+                    glb_likelihood(true_rates[i], 1.01 * sig[i] + 1.02 * bg_center * bg[i]) for
+                    i = lo:hi
+                ) +
+                (0.01 / 0.025)^2 +
+                (0.02 * bg_center / 0.05)^2
+            @test glbGetChiFunctionPtr("chiSpectrumCalib")(1, 1, 4, x, errs, nothing) ≈ expected rtol =
+                1e-12
             # its minimum no longer depends on the last digits of the starting point
-            chi(eps) = (p = test_point(); glbSetOscParams(p, glbGetOscParams(p, GLB_THETA_23) * (1 + eps), GLB_THETA_23);
-                        glbChiSys(p, 1, 1))
+            chi(eps) = (
+                p = test_point();
+                glbSetOscParams(p, glbGetOscParams(p, GLB_THETA_23) * (1 + eps), GLB_THETA_23);
+                glbChiSys(p, 1, 1)
+            )
             @test chi(1e-12) ≈ chi(0.0) rtol = 1e-9
             @test chi(-1e-12) ≈ chi(0.0) rtol = 1e-9
         end
@@ -326,8 +428,9 @@ cd(DATADIR) do
             glbSetRates()
             reference = copy(glbGetRuleRatePtr(1, 1))
             calls = Ref(0)
-            prob = (P, cp, E, psteps, L, rho, fs, ud) -> (calls[] += 1;
-                                                          GLoBES.default_prob_func(P, cp, E, psteps, L, rho, fs, ud))
+            prob =
+                (P, cp, E, psteps, L, rho, fs, ud) ->
+                    (calls[] += 1; GLoBES.default_prob_func(P, cp, E, psteps, L, rho, fs, ud))
             glbRegisterProbabilityEngine(6, prob, nothing, nothing)
             try
                 glbSetOscillationParameters(p0)

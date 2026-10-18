@@ -1,0 +1,8 @@
+[deps]
+GLoBES = "367f8d2e-8d77-4eed-9bd4-73b32ac618fb"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+GLoBES = "0.1"
+SpecialFunctions = "2"

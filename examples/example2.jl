@@ -49,8 +49,15 @@ function main()
     glbSetInputErrors(input_errors)
 
     # Set two-parameter projection onto s22th13-axis: only deltacp free!
-    glbDefineProjection(theta13_projection, GLB_FIXED, GLB_FIXED, GLB_FIXED,
-                        GLB_FREE, GLB_FIXED, GLB_FIXED)
+    glbDefineProjection(
+        theta13_projection,
+        GLB_FIXED,
+        GLB_FIXED,
+        GLB_FIXED,
+        GLB_FREE,
+        GLB_FIXED,
+        GLB_FIXED,
+    )
     glbSetDensityProjectionFlag(theta13_projection, GLB_FIXED, GLB_ALL)
     glbSetProjection(theta13_projection)
 

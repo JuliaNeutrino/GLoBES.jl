@@ -1,0 +1,13 @@
+exclude = [
+  "@ref",
+  "@cite",
+  "^https://github.com/.*/releases/tag/v.*$",
+  "^https://arnavk23.github.io/GLoBES.jl/stable$",
+  "^https://arnavk23.github.io/GLoBES.jl/dev$",
+]
+
+exclude_path = [
+  "docs/build",
+  "docs/manual",
+  "test/reference",
+]

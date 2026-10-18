@@ -7,7 +7,7 @@ const GLB_OLD_NORM = -99
 
 mutable struct Flux
     builtin::Int
-    file_name::Union{Nothing,String}
+    file_name::Union{Nothing, String}
     time::Float64
     parent_energy::Float64
     stored_muons::Float64
@@ -21,7 +21,7 @@ Flux() = Flux(-1, nothing, -1, -1, -1, -1, -1, -1, -1, zeros(0, 0))
 
 mutable struct XSec
     builtin::Int
-    file_name::Union{Nothing,String}
+    file_name::Union{Nothing, String}
     storage::Matrix{Float64}     # 1001 x 7: log10(E), sigma/E for e,mu,tau, ebar,mubar,taubar
 end
 XSec() = XSec(-1, nothing, zeros(0, 0))
@@ -37,17 +37,32 @@ mutable struct SmearData
     e_max::Float64
     e_sim_min::Float64
     e_sim_max::Float64
-    sigma::Union{Nothing,Vector{Float64}}
+    sigma::Union{Nothing, Vector{Float64}}
     num_of_params::Int
-    sig_f::Union{Nothing,Function}
-    binsize::Union{Nothing,Vector{Float64}}
-    simbinsize::Union{Nothing,Vector{Float64}}
+    sig_f::Union{Nothing, Function}
+    binsize::Union{Nothing, Vector{Float64}}
+    simbinsize::Union{Nothing, Vector{Float64}}
     bincenter::Vector{Float64}
     simbincenter::Vector{Float64}
     corr_fac::Float64            # options->corr_fac (filter value for type 2)
 end
-SmearData() = SmearData(-1, -1, -1, -1, -1, -1, -1, nothing, -1, nothing,
-                        nothing, nothing, Float64[], Float64[], -1)
+SmearData() = SmearData(
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    nothing,
+    -1,
+    nothing,
+    nothing,
+    nothing,
+    Float64[],
+    Float64[],
+    -1,
+)
 
 """
     ChiFunction(func, dim, name, user_data)
@@ -79,14 +94,14 @@ mutable struct Rule
     bg_coeff::Vector{Float64}
     bg_channels::Vector{Int}
     sys_on_off::Int
-    sys_on::Union{Nothing,ChiFunction}
-    sys_off::Union{Nothing,ChiFunction}
-    sys_on_string::Union{Nothing,String}
-    sys_off_string::Union{Nothing,String}
-    sys_on_errors::Union{Nothing,Vector{Float64}}
-    sys_on_startvals::Union{Nothing,Vector{Float64}}
-    sys_off_errors::Union{Nothing,Vector{Float64}}
-    sys_off_startvals::Union{Nothing,Vector{Float64}}
+    sys_on::Union{Nothing, ChiFunction}
+    sys_off::Union{Nothing, ChiFunction}
+    sys_on_string::Union{Nothing, String}
+    sys_off_string::Union{Nothing, String}
+    sys_on_errors::Union{Nothing, Vector{Float64}}
+    sys_on_startvals::Union{Nothing, Vector{Float64}}
+    sys_off_errors::Union{Nothing, Vector{Float64}}
+    sys_off_startvals::Union{Nothing, Vector{Float64}}
     signal_errors::Vector{Float64}     # [norm, tilt] for GLoBES 2.0.11-style chi^2 functions
     signal_startvals::Vector{Float64}
     bg_errors::Vector{Float64}
@@ -97,9 +112,30 @@ mutable struct Rule
     errordim_sys_on::Int
     errordim_sys_off::Int
 end
-Rule() = Rule(Float64[], Int[], Float64[], Int[], GLB_ON, nothing, nothing, nothing, nothing,
-              nothing, nothing, nothing, nothing, [-1.0, -1.0], [0.0, 0.0], [-1.0, -1.0],
-              [0.0, 0.0], [1.0, 0.0], [-1.0, -1.0], [-1, -1], -1, -1)
+Rule() = Rule(
+    Float64[],
+    Int[],
+    Float64[],
+    Int[],
+    GLB_ON,
+    nothing,
+    nothing,
+    nothing,
+    nothing,
+    nothing,
+    nothing,
+    nothing,
+    nothing,
+    [-1.0, -1.0],
+    [0.0, 0.0],
+    [-1.0, -1.0],
+    [0.0, 0.0],
+    [1.0, 0.0],
+    [-1.0, -1.0],
+    [-1, -1],
+    -1,
+    -1,
+)
 
 """
     ExperimentData
@@ -108,15 +144,15 @@ Everything GLoBES knows about one experiment: what the AEDL file defined,
 the precomputed smearing matrices, and the rate buffers. Indices are 1-based.
 """
 mutable struct ExperimentData
-    version::Union{Nothing,String}
+    version::Union{Nothing, String}
     filename::String
-    names::Vector{Tuple{String,String,Int}}   # (name, context, 1-based value)
+    names::Vector{Tuple{String, String, Int}}   # (name, context, 1-based value)
 
     fluxes::Vector{Flux}
     xsecs::Vector{XSec}
 
-    binsize::Union{Nothing,Vector{Float64}}
-    simbinsize::Union{Nothing,Vector{Float64}}
+    binsize::Union{Nothing, Vector{Float64}}
+    simbinsize::Union{Nothing, Vector{Float64}}
 
     density_profile_type::Int
     baseline::Float64
@@ -146,10 +182,10 @@ mutable struct ExperimentData
     densitytab::Vector{Float64}
     densitybuffer::Vector{Float64}
 
-    user_pre_smearing_channel::Vector{Union{Nothing,Vector{Float64}}}
-    user_post_smearing_channel::Vector{Union{Nothing,Vector{Float64}}}
-    user_pre_smearing_background::Vector{Union{Nothing,Vector{Float64}}}
-    user_post_smearing_background::Vector{Union{Nothing,Vector{Float64}}}
+    user_pre_smearing_channel::Vector{Union{Nothing, Vector{Float64}}}
+    user_post_smearing_channel::Vector{Union{Nothing, Vector{Float64}}}
+    user_pre_smearing_background::Vector{Union{Nothing, Vector{Float64}}}
+    user_post_smearing_background::Vector{Union{Nothing, Vector{Float64}}}
 
     energy_tab::Vector{Float64}
 
@@ -166,19 +202,67 @@ mutable struct ExperimentData
 end
 
 function ExperimentData()
-    ExperimentData(nothing, "", Tuple{String,String,Int}[], Flux[], XSec[], nothing, nothing,
-               -1, -1, -1, -1, -1, -1, Channel[], Rule[],
-               SmearData[], Vector{Vector{Float64}}[], Vector{Int}[], Vector{Int}[], Bool[],
-               -1, -1, -1, -1, -1, -1, Float64[], Float64[], Float64[],
-               Union{Nothing,Vector{Float64}}[], Union{Nothing,Vector{Float64}}[],
-               Union{Nothing,Vector{Float64}}[], Union{Nothing,Vector{Float64}}[],
-               Float64[], Vector{Float64}[], Vector{Float64}[], Vector{Float64}[], Vector{Float64}[],
-               Vector{Float64}[], Vector{Float64}[], Vector{Float64}[], Vector{Float64}[], Vector{Float64}[])
+    ExperimentData(
+        nothing,
+        "",
+        Tuple{String, String, Int}[],
+        Flux[],
+        XSec[],
+        nothing,
+        nothing,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        Channel[],
+        Rule[],
+        SmearData[],
+        Vector{Vector{Float64}}[],
+        Vector{Int}[],
+        Vector{Int}[],
+        Bool[],
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        Float64[],
+        Float64[],
+        Float64[],
+        Union{Nothing, Vector{Float64}}[],
+        Union{Nothing, Vector{Float64}}[],
+        Union{Nothing, Vector{Float64}}[],
+        Union{Nothing, Vector{Float64}}[],
+        Float64[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+        Vector{Float64}[],
+    )
 end
 
-Base.show(io::IO, e::ExperimentData) =
-    print(io, "ExperimentData(\"", basename(e.filename), "\", L=", e.baseline, " km, ",
-          length(e.channels), " channels, ", length(e.rules), " rules, ", e.numofbins, " bins)")
+Base.show(io::IO, e::ExperimentData) = print(
+    io,
+    "ExperimentData(\"",
+    basename(e.filename),
+    "\", L=",
+    e.baseline,
+    " km, ",
+    length(e.channels),
+    " channels, ",
+    length(e.rules),
+    " rules, ",
+    e.numofbins,
+    " bins)",
+)
 
 # Oscillation / density parameter vector (glb_params)
 """

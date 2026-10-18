@@ -1,0 +1,53 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below, together with the GLoBES papers."
+title: "GLoBES.jl: the General Long Baseline Experiment Simulator in Julia"
+authors:
+  - family-names: Kapoor
+    given-names: Arnav
+    orcid: "https://orcid.org/0009-0007-9818-7908"
+version: "0.1.0"
+repository-code: "https://github.com/arnavk23/GLoBES.jl"
+url: "https://arnavk23.github.io/GLoBES.jl/stable"
+license: GPL-2.0-or-later
+abstract: >
+  A pure-Julia implementation of GLoBES, the General Long Baseline Experiment
+  Simulator, for long-baseline and reactor neutrino oscillation experiments
+  described in the Abstract Experiment Definition Language (AEDL).
+keywords:
+  - neutrino oscillations
+  - long-baseline experiments
+  - simulation
+  - Julia
+references:
+  - type: article
+    authors:
+      - family-names: Huber
+        given-names: P.
+      - family-names: Lindner
+        given-names: M.
+      - family-names: Winter
+        given-names: W.
+    title: "Simulation of long-baseline neutrino oscillation experiments with GLoBES"
+    year: 2005
+    doi: "10.1016/j.cpc.2005.01.003"
+    journal: "Computer Physics Communications"
+    volume: 167
+    start: 195
+  - type: article
+    authors:
+      - family-names: Huber
+        given-names: P.
+      - family-names: Kopp
+        given-names: J.
+      - family-names: Lindner
+        given-names: M.
+      - family-names: Rolinec
+        given-names: M.
+      - family-names: Winter
+        given-names: W.
+    title: "New features in the simulation of neutrino oscillation experiments with GLoBES 3.0"
+    year: 2007
+    doi: "10.1016/j.cpc.2007.05.004"
+    journal: "Computer Physics Communications"
+    volume: 177
+    start: 432

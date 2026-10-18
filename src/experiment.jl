@@ -12,14 +12,16 @@ end
 function setup_density_profile!(e::ExperimentData)
     s = 0
     if e.density_profile_type == -1
-        exp_error(e, "No profile type specified"); s = -1
+        exp_error(e, "No profile type specified")
+        s = -1
     elseif e.density_profile_type == 1
         e.psteps = 1
         if e.baseline > 0
             r = glbAverageDensityProfile(e.baseline)
             r === nothing ? (s = -1) : ((e.lengthtab, e.densitytab) = r)
         else
-            exp_error(e, "Baseline must be a positive number"); s = -1
+            exp_error(e, "Baseline must be a positive number")
+            s = -1
         end
     elseif e.density_profile_type == 2
         if e.baseline > 0
@@ -27,19 +29,23 @@ function setup_density_profile!(e::ExperimentData)
                 r = glbStaceyProfile(e.baseline, e.psteps)
                 r === nothing ? (s = -1) : ((e.lengthtab, e.densitytab) = r)
             else
-                exp_error(e, "Densitysteps must be a positive number"); s = -1
+                exp_error(e, "Densitysteps must be a positive number")
+                s = -1
             end
         else
-            exp_error(e, "Baseline must be a positive number"); s = -1
+            exp_error(e, "Baseline must be a positive number")
+            s = -1
         end
     elseif e.density_profile_type == 3
         ttl = 0.0
         if !isempty(e.lengthtab) && e.psteps > 0
-            for i in 1:e.psteps
+            for i = 1:e.psteps
                 ttl += e.lengthtab[i]
             end
         end
-        ttl != e.baseline && e.baseline != -1 && glb_warning("Override baseline with sum of lengthtab")
+        ttl != e.baseline &&
+            e.baseline != -1 &&
+            glb_warning("Override baseline with sum of lengthtab")
         e.baseline = ttl
     end
     return s
@@ -87,7 +93,8 @@ function default_exp!(e::ExperimentData)
     status += setup_density_profile!(e)
 
     if e.version === nothing
-        glb_error("Missing version in AEDL file"); def = -1
+        glb_error("Missing version in AEDL file")
+        def = -1
         e.version = GLB_VERSION
     end
 
@@ -105,7 +112,8 @@ function default_exp!(e::ExperimentData)
         for on_off in (GLB_ON, GLB_OFF)
             name = on_off == GLB_ON ? r.sys_on_string : r.sys_off_string
             if name === nothing
-                rule_error(e, i, "No chi^2 function specified"); status = -1
+                rule_error(e, i, "No chi^2 function specified")
+                status = -1
                 continue
             end
             tmp = on_off == GLB_ON ? r.sys_on_errors : r.sys_off_errors
@@ -118,19 +126,25 @@ function default_exp!(e::ExperimentData)
             if dim >= 0
                 if tmp !== nothing
                     k = 0
-                    while k < length(tmp) && tmp[k+1] > 0.0
+                    while k < length(tmp) && tmp[k + 1] > 0.0
                         k += 1
                     end
                     if k != dim
-                        rule_error(e, i, "Invalid systematical error list @sys_$(on_off == GLB_ON ? "on" : "off")_errors")
+                        rule_error(
+                            e,
+                            i,
+                            "Invalid systematical error list @sys_$(on_off == GLB_ON ? "on" : "off")_errors",
+                        )
                         status = -1
                     end
                 end
             else
-                rule_error(e, i, "Invalid systematics specification"); status = -1
+                rule_error(e, i, "Invalid systematics specification")
+                status = -1
             end
             if set_chi_function_in_rule!(e, i, on_off, name, tmp) != 0
-                rule_error(e, i, "Invalid systematics specification"); status = -1
+                rule_error(e, i, "Invalid systematics specification")
+                status = -1
             end
         end
     end
@@ -147,9 +161,14 @@ function default_exp!(e::ExperimentData)
         isempty(r.signal_channels) && (rule_error(e, i, "No signal specified!"); status = -1)
     end
     for (i, c) in enumerate(e.channels)
-        if c.flux < 1 || c.flux > length(e.fluxes) || c.xsec < 1 || c.xsec > length(e.xsecs) ||
-           c.energy < 1 || c.energy > length(e.smear_data)
-            exp_error(e, "Channel $i is not properly defined!"); status = -1
+        if c.flux < 1 ||
+           c.flux > length(e.fluxes) ||
+           c.xsec < 1 ||
+           c.xsec > length(e.xsecs) ||
+           c.energy < 1 ||
+           c.energy > length(e.smear_data)
+            exp_error(e, "Channel $i is not properly defined!")
+            status = -1
         end
     end
 
@@ -176,34 +195,40 @@ function default_exp!(e::ExperimentData)
         end
         if e.simtresh == -1 || e.simbeam == -1 || e.simbins == -1
             # User-defined matrices without explicit sampling settings
-            e.simtresh = sd.e_sim_min; e.simbeam = sd.e_sim_max; e.simbins = sd.simbins
+            e.simtresh = sd.e_sim_min
+            e.simbeam = sd.e_sim_max
+            e.simbins = sd.simbins
         end
         e.simbins < e.numofbins && (exp_error(e, "Less sampling points than bins"); status = -1)
     end
 
     # Buffers
-    nb = e.numofbins; ns = e.simbins
-    nr = length(e.rules); nc = length(e.channels)
-    e.rates0 = [zeros(nb) for _ in 1:nr]
-    e.rates1 = [zeros(nb) for _ in 1:nr]
-    e.rates1BG = [zeros(nb) for _ in 1:nr]
-    e.SignalRates = [zeros(nb) for _ in 1:nr]
-    e.BackgroundRates = [zeros(nb) for _ in 1:nr]
+    nb = e.numofbins
+    ns = e.simbins
+    nr = length(e.rules)
+    nc = length(e.channels)
+    e.rates0 = [zeros(nb) for _ = 1:nr]
+    e.rates1 = [zeros(nb) for _ = 1:nr]
+    e.rates1BG = [zeros(nb) for _ = 1:nr]
+    e.SignalRates = [zeros(nb) for _ = 1:nr]
+    e.BackgroundRates = [zeros(nb) for _ = 1:nr]
     e.energy_tab = zeros(nb)
-    e.chrb_0 = [zeros(ns) for _ in 1:nc]
-    e.chrb_1 = [zeros(ns) for _ in 1:nc]
-    e.chra_0 = [zeros(nb) for _ in 1:nc]
-    e.chra_1 = [zeros(nb) for _ in 1:nc]
+    e.chrb_0 = [zeros(ns) for _ = 1:nc]
+    e.chrb_1 = [zeros(ns) for _ = 1:nc]
+    e.chra_0 = [zeros(nb) for _ = 1:nc]
+    e.chra_1 = [zeros(nb) for _ = 1:nc]
     e.psteps <= 0 && (exp_error(e, "Too few density steps defined!"); status = -1)
     e.densitybuffer = copy(e.densitytab)
     length(e.lengthtab) != e.psteps && (exp_error(e, "lengthtab has wrong length"); status = -1)
     length(e.densitytab) != e.psteps && (exp_error(e, "densitytab has wrong length"); status = -1)
 
-    for i in 1:nc
-        fields = ((:user_pre_smearing_channel, ns, 1.0),
-                  (:user_pre_smearing_background, ns, 0.0),
-                  (:user_post_smearing_channel, nb, 1.0),
-                  (:user_post_smearing_background, nb, 0.0))
+    for i = 1:nc
+        fields = (
+            (:user_pre_smearing_channel, ns, 1.0),
+            (:user_pre_smearing_background, ns, 0.0),
+            (:user_post_smearing_channel, nb, 1.0),
+            (:user_post_smearing_background, nb, 0.0),
+        )
         for (f, len, val) in fields
             v = getfield(e, f)
             if v[i] === nothing
@@ -219,10 +244,12 @@ function default_exp!(e::ExperimentData)
     sd0 = e.smear_data[1]
     for r in e.rules
         if r.energy_window[1] == -1 || r.energy_window[1] < e.emin
-            r.energy_window[1] = e.emin; def = -1
+            r.energy_window[1] = e.emin
+            def = -1
         end
         if r.energy_window[2] == -1 || r.energy_window[2] > e.emax
-            r.energy_window[2] = e.emax; def = -1
+            r.energy_window[2] = e.emax
+            def = -1
         end
         if r.energy_window[1] > r.energy_window[2]
             r.energy_window[1], r.energy_window[2] = r.energy_window[2], r.energy_window[1]
@@ -252,7 +279,8 @@ function calc_all_probs!(e::ExperimentData, en)
     st = state()
     fs = e.filter_state == GLB_ON ? e.filter_value : -1.0
     s1 = st.prob_func(st.P, +1, en, e.psteps, e.lengthtab, e.densitybuffer, fs, st.prob_user_data)
-    s2 = st.prob_func(st.Pbar, -1, en, e.psteps, e.lengthtab, e.densitybuffer, fs, st.prob_user_data)
+    s2 =
+        st.prob_func(st.Pbar, -1, en, e.psteps, e.lengthtab, e.densitybuffer, fs, st.prob_user_data)
     (s1 != 0 || s2 != 0) && glb_error("Calculation of oscillation probabilities failed.")
 end
 
@@ -260,26 +288,35 @@ function calc_channel(e::ExperimentData, c::Channel, en)
     st = state()
     fin = c.final > 9 ? c.final - 10 : c.final
     ini = c.initial > 9 ? c.initial - 10 : c.initial
-    flux = e.fluxes[c.flux]; xsec = e.xsecs[c.xsec]
+    flux = e.fluxes[c.flux]
+    xsec = e.xsecs[c.xsec]
     if is_nosc(c)
         fin != ini && return 0.0
-        return glb_xsec_calc(en, fin, c.cp, xsec) * glb_flux_calc(en, e.baseline, ini, c.cp, flux) * e.targetmass
+        return glb_xsec_calc(en, fin, c.cp, xsec) *
+               glb_flux_calc(en, e.baseline, ini, c.cp, flux) *
+               e.targetmass
     end
     P = c.cp == 1 ? st.P : st.Pbar
-    return glb_xsec_calc(en, fin, c.cp, xsec) * glb_flux_calc(en, e.baseline, ini, c.cp, flux) *
-           P[ini, fin] * e.targetmass
+    return glb_xsec_calc(en, fin, c.cp, xsec) *
+           glb_flux_calc(en, e.baseline, ini, c.cp, flux) *
+           P[ini, fin] *
+           e.targetmass
 end
 
 function apply_smearing!(out, e::ExperimentData, c_idx, pre)
     c = e.channels[c_idx]
     s = c.energy
-    sm = e.smear[s]; low = e.lowrange[s]; up = e.uprange[s]
-    eff = e.user_post_smearing_channel[c_idx]; bg = e.user_post_smearing_background[c_idx]
-    for j in 1:e.numofbins
+    sm = e.smear[s]
+    low = e.lowrange[s]
+    up = e.uprange[s]
+    eff = e.user_post_smearing_channel[c_idx]
+    bg = e.user_post_smearing_background[c_idx]
+    for j = 1:e.numofbins
         acc = 0.0
-        row = sm[j]; lo = low[j]
-        for k in lo:up[j]
-            acc += row[k-lo+1] * pre[k]
+        row = sm[j]
+        lo = low[j]
+        for k = lo:up[j]
+            acc += row[k - lo + 1] * pre[k]
         end
         out[j] = acc * eff[j] + bg[j]
     end
@@ -293,16 +330,17 @@ oscillation parameters.
 """
 function set_rates!(e::ExperimentData)
     sd0 = e.smear_data[1]
-    for j in 1:e.numofbins
+    for j = 1:e.numofbins
         e.energy_tab[j] = sd0.bincenter[j]
     end
-    for j in 1:e.simbins
+    for j = 1:e.simbins
         calc_all_probs!(e, sd0.simbincenter[j])
         for (i, c) in enumerate(e.channels)
             sd = e.smear_data[c.energy]
-            e.chrb_0[i][j] = calc_channel(e, c, sd.simbincenter[j]) *
-                             e.user_pre_smearing_channel[i][j] * sd.simbinsize[j] +
-                             e.user_pre_smearing_background[i][j]
+            e.chrb_0[i][j] =
+                calc_channel(e, c, sd.simbincenter[j]) *
+                e.user_pre_smearing_channel[i][j] *
+                sd.simbinsize[j] + e.user_pre_smearing_background[i][j]
             is_nosc(c) && (e.chrb_1[i][j] = e.chrb_0[i][j])
         end
     end
@@ -311,8 +349,9 @@ function set_rates!(e::ExperimentData)
         is_nosc(c) && (e.chra_1[i] .= e.chra_0[i])
     end
     for (i, r) in enumerate(e.rules)
-        bg = e.BackgroundRates[i]; sig = e.SignalRates[i]
-        for j in 1:e.numofbins
+        bg = e.BackgroundRates[i]
+        sig = e.SignalRates[i]
+        for j = 1:e.numofbins
             b = 0.0
             for k in eachindex(r.bg_channels)
                 b += r.bg_coeff[k] * e.chra_0[r.bg_channels[k]][j]
@@ -325,7 +364,7 @@ function set_rates!(e::ExperimentData)
             sig[j] = s
         end
         fill!(e.rates0[i], 0.0)
-        for j in r.energy_window_bins[1]:r.energy_window_bins[2]
+        for j = r.energy_window_bins[1]:r.energy_window_bins[2]
             e.rates0[i][j] = sig[j] + bg[j] * r.bg_centers[1]
         end
     end
@@ -339,14 +378,15 @@ Compute the fitted event rates for the current oscillation parameters
 """
 function set_new_rates!(e::ExperimentData)
     sd0 = e.smear_data[1]
-    for j in 1:e.simbins
+    for j = 1:e.simbins
         calc_all_probs!(e, sd0.simbincenter[j])
         for (i, c) in enumerate(e.channels)
             is_nosc(c) && continue
             sd = e.smear_data[c.energy]
-            e.chrb_1[i][j] = calc_channel(e, c, sd.simbincenter[j]) *
-                             e.user_pre_smearing_channel[i][j] * sd.simbinsize[j] +
-                             e.user_pre_smearing_background[i][j]
+            e.chrb_1[i][j] =
+                calc_channel(e, c, sd.simbincenter[j]) *
+                e.user_pre_smearing_channel[i][j] *
+                sd.simbinsize[j] + e.user_pre_smearing_background[i][j]
         end
     end
     for (i, c) in enumerate(e.channels)
@@ -354,8 +394,9 @@ function set_new_rates!(e::ExperimentData)
         apply_smearing!(e.chra_1[i], e, i, e.chrb_1[i])
     end
     for (i, r) in enumerate(e.rules)
-        rb = e.rates1BG[i]; rs = e.rates1[i]
-        for j in 1:e.numofbins
+        rb = e.rates1BG[i]
+        rs = e.rates1[i]
+        for j = 1:e.numofbins
             b = 0.0
             for k in eachindex(r.bg_channels)
                 b += r.bg_coeff[k] * e.chra_1[r.bg_channels[k]][j]

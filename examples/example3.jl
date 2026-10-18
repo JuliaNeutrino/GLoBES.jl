@@ -48,8 +48,12 @@ function main()
     glbSetInputErrors(input_errors)
     CL = glbChiAll(central_values, deg_pos, GLB_ALL)
 
-    @printf("Position of degeneracy: s22th13=%g, deltacp=%g; Confidence level: %g \n",
-            glbGetOscParams(deg_pos, GLB_THETA_13), glbGetOscParams(deg_pos, GLB_DELTA_CP), CL)
+    @printf(
+        "Position of degeneracy: s22th13=%g, deltacp=%g; Confidence level: %g \n",
+        glbGetOscParams(deg_pos, GLB_THETA_13),
+        glbGetOscParams(deg_pos, GLB_DELTA_CP),
+        CL
+    )
 
     # If degeneracy at low enough confidence level: compute section
     if CL < 9.0

@@ -13,15 +13,13 @@ function inverse_beta_sigma(x, p)
     return p[1] * sqrt((x - 0.0018 + 0.001) * 1000.0) / 1000.0
 end
 
-const SIGMA_FUNCTIONS = Dict{String,Function}(
-    "#standard" => standard_sigma,
-    "#inverse_beta" => inverse_beta_sigma,
-)
+const SIGMA_FUNCTIONS =
+    Dict{String, Function}("#standard" => standard_sigma, "#inverse_beta" => inverse_beta_sigma)
 
 function init_bin_data!(sd::SmearData)
     sd.bincenter = zeros(sd.numofbins)
     med = sd.e_min
-    for i in 1:sd.numofbins
+    for i = 1:sd.numofbins
         med += sd.binsize[i]
         sd.bincenter[i] = med - sd.binsize[i] * 0.5
     end
@@ -30,7 +28,7 @@ end
 function init_sim_bin_data!(sd::SmearData)
     sd.simbincenter = zeros(sd.simbins)
     med = sd.e_sim_min
-    for i in 1:sd.simbins
+    for i = 1:sd.simbins
         med += sd.simbinsize[i]
         sd.simbincenter[i] = med - sd.simbinsize[i] * 0.5
     end
@@ -48,11 +46,14 @@ function default_smear!(sd::SmearData, exp::ExperimentData)
     sd.e_min == -1 && (exp_error(exp, "No minimal energy defined!"); s = -1)
     sd.e_min <= 0 && (exp_error(exp, "Minimal energy must be positive!"); s = -1)
     sd.e_max == -1 && (exp_error(exp, "No maximal energy defined!"); s = -1)
-    sd.e_max <= sd.e_min && (glb_error("Maximal energy must be larger than the minimal energy!"); s = -1)
+    sd.e_max <= sd.e_min &&
+        (glb_error("Maximal energy must be larger than the minimal energy!"); s = -1)
     if sd.e_sim_min != -1 || sd.e_sim_max != -1
         sd.e_sim_min <= 0 && (exp_error(exp, "Minimal sim energy must be positive!"); s = -1)
-        sd.e_sim_max <= sd.e_sim_min &&
-            (exp_error(exp, "Maximal sim energy must be larger than the minimal sim energy!"); s = -1)
+        sd.e_sim_max <= sd.e_sim_min && (
+            exp_error(exp, "Maximal sim energy must be larger than the minimal sim energy!");
+            s = -1
+        )
     end
     sd.num_of_params == -1 && (sd.num_of_params = 3)
     sd.num_of_params == 0 && (sd.sigma = nothing)
@@ -62,8 +63,9 @@ function default_smear!(sd::SmearData, exp::ExperimentData)
     end
     sd.sig_f === nothing && (sd.sig_f = standard_sigma)
     if sd.binsize === nothing && s == 0
-        sd.binsize = exp.binsize === nothing ?
-            fill((sd.e_max - sd.e_min) / sd.numofbins, sd.numofbins) : copy(exp.binsize)
+        sd.binsize =
+            exp.binsize === nothing ? fill((sd.e_max - sd.e_min) / sd.numofbins, sd.numofbins) :
+            copy(exp.binsize)
     end
     s == 0 && init_bin_data!(sd)
     sd.corr_fac = exp.filter_value
@@ -91,8 +93,9 @@ function set_up_smear_data!(sd::SmearData, exp::ExperimentData)
     sd.e_max == -1 && (sd.e_max = exp.emax)
     sd.numofbins == -1 && (sd.numofbins = exp.numofbins)
     if sd.binsize === nothing
-        sd.binsize = exp.binsize === nothing ?
-            fill((sd.e_max - sd.e_min) / sd.numofbins, sd.numofbins) : copy(exp.binsize)
+        sd.binsize =
+            exp.binsize === nothing ? fill((sd.e_max - sd.e_min) / sd.numofbins, sd.numofbins) :
+            copy(exp.binsize)
     end
     init_bin_data!(sd)
     setup_smear_matrix_A!(sd, exp)
@@ -129,12 +132,17 @@ function compute_smearing_matrix(sd::SmearData, exp::ExperimentData)
     setup_smear_matrix_A!(sd, exp)
     truncated = sd.type == GLB_TYPE_C
     rows = Vector{Vector{Float64}}(undef, sd.numofbins)
-    low = zeros(Int, sd.numofbins); up = zeros(Int, sd.numofbins)
-    for i in 1:sd.numofbins
-        nonzero = 0; zero = 0; prev = false
+    low = zeros(Int, sd.numofbins)
+    up = zeros(Int, sd.numofbins)
+    for i = 1:sd.numofbins
+        nonzero = 0
+        zero = 0
+        prev = false
         row = Float64[]
-        for j in 1:sd.simbins
-            erg = round((1 / SMEAR_TOL) * smear_element(i, j, sd, truncated), RoundNearestTiesAway) * SMEAR_TOL
+        for j = 1:sd.simbins
+            erg =
+                round((1 / SMEAR_TOL) * smear_element(i, j, sd, truncated), RoundNearestTiesAway) *
+                SMEAR_TOL
             if erg != 0
                 prev = true
                 nonzero += 1

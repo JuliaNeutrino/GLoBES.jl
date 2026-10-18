@@ -48,13 +48,12 @@ const true_values = Ref{GlbParams}()
 const test_values = Ref{GlbParams}()
 const input_errors = Ref{GlbParams}()
 
-
 #  H E L P E R   F U N C T I O N S
 
 # Gauss likelihood (this is sufficient here due to the large event numbers
 # in a reactor experiment; for other setups, one should use Poisson statistics)
-likelihood(true_rate, fit_rate, sqr_sigma) = sqr_sigma > 0 ? (true_rate - fit_rate)^2 / sqr_sigma : 0.0
-
+likelihood(true_rate, fit_rate, sqr_sigma) =
+    sqr_sigma > 0 ? (true_rate - fit_rate)^2 / sqr_sigma : 0.0
 
 #  C H I ^ 2   F U N C T I O N S
 
@@ -74,14 +73,16 @@ function chiDCNorm(exp, rule, n_params, x, errors, user_data)
     ew_low, ew_high = glbGetEnergyWindowBins(exp, rule)
 
     # Apply energy calibration error
-    signal_fit_rates_F = glbShiftEnergyScale(x[4], glbGetSignalFitRatePtr(EXP_FAR, 1), n_bins, emin, emax)
-    signal_fit_rates_N = glbShiftEnergyScale(x[5], glbGetSignalFitRatePtr(EXP_NEAR, 1), n_bins, emin, emax)
+    signal_fit_rates_F =
+        glbShiftEnergyScale(x[4], glbGetSignalFitRatePtr(EXP_FAR, 1), n_bins, emin, emax)
+    signal_fit_rates_N =
+        glbShiftEnergyScale(x[5], glbGetSignalFitRatePtr(EXP_NEAR, 1), n_bins, emin, emax)
 
     # Loop over all bins in energy window
     signal_norm_F = 1.0 + x[1] + x[2]
     signal_norm_N = 1.0 + x[1] + x[3]
     chi2 = 0.0
-    for i in ew_low:ew_high
+    for i = ew_low:ew_high
         # Statistical part of χ² for far detector
         # Normalization is affected by flux error x[1] and fiducial mass error x[2]
         fit_rate = signal_norm_F * signal_fit_rates_F[i]
@@ -94,12 +95,12 @@ function chiDCNorm(exp, rule, n_params, x, errors, user_data)
     end
 
     # Systematical part of χ² (= priors)
-    for i in 1:n_params
+    for i = 1:n_params
         chi2 += (x[i] / errors[i])^2
     end
 
     # Save the systematics parameters as starting values for the next step
-    for i in 1:n_params
+    for i = 1:n_params
         sys_startval[i] = x[i]
     end
     return chi2
@@ -124,48 +125,59 @@ function chiDCSpectral(exp, rule, n_params, x, errors, user_data)
     ew_low, ew_high = glbGetEnergyWindowBins(exp, rule)
 
     # Apply energy calibration error
-    signal_fit_rates_F = glbShiftEnergyScale(x[4], glbGetSignalFitRatePtr(EXP_FAR, 1), n_bins, emin, emax)
-    signal_fit_rates_N = glbShiftEnergyScale(x[5], glbGetSignalFitRatePtr(EXP_NEAR, 1), n_bins, emin, emax)
+    signal_fit_rates_F =
+        glbShiftEnergyScale(x[4], glbGetSignalFitRatePtr(EXP_FAR, 1), n_bins, emin, emax)
+    signal_fit_rates_N =
+        glbShiftEnergyScale(x[5], glbGetSignalFitRatePtr(EXP_NEAR, 1), n_bins, emin, emax)
 
     # Loop over all bins in energy window
     signal_norm_F = 1.0 + x[1] + x[2]
     signal_norm_N = 1.0 + x[1] + x[3]
     s2 = sigma_binbin[]^2
     chi2 = 0.0
-    for i in ew_low:ew_high
+    for i = ew_low:ew_high
         # Statistical part of χ² for far detector
         # Normalization is affected by flux error x[1], fiducial mass error x[2],
         # spectral perturbations x[5+i], and bin-to-bin error sigma_binbin
-        fit_rate = (signal_norm_F + x[5+i]) * signal_fit_rates_F[i]
-        chi2 += likelihood(true_rates_F[i], fit_rate, true_rates_F[i] * (1.0 + true_rates_F[i] * s2))
+        fit_rate = (signal_norm_F + x[5 + i]) * signal_fit_rates_F[i]
+        chi2 +=
+            likelihood(true_rates_F[i], fit_rate, true_rates_F[i] * (1.0 + true_rates_F[i] * s2))
 
         # Statistical part of χ² for near detector
         # Normalization is affected by flux error x[1], fiducial mass error x[3],
         # spectral perturbations x[5+i], and bin-to-bin error sigma_binbin
-        fit_rate = (signal_norm_N + x[5+i]) * signal_fit_rates_N[i]
-        chi2 += likelihood(true_rates_N[i], fit_rate, true_rates_N[i] * (1.0 + true_rates_N[i] * s2))
+        fit_rate = (signal_norm_N + x[5 + i]) * signal_fit_rates_N[i]
+        chi2 +=
+            likelihood(true_rates_N[i], fit_rate, true_rates_N[i] * (1.0 + true_rates_N[i] * s2))
     end
 
     # Systematical part of χ² (= priors)
-    for i in 1:n_params
+    for i = 1:n_params
         chi2 += (x[i] / errors[i])^2
     end
 
     # Save the systematics parameters as starting values for the next step
-    for i in 1:n_params
+    for i = 1:n_params
         sys_startval[i] = x[i]
     end
     return chi2
 end
 
-
 #  B R E N T   R O O T   F I N D E R   (as gsl_root_fsolver_brent)
 
 mutable struct BrentSolver
     f::Function
-    a::Float64; b::Float64; c::Float64; d::Float64; e::Float64
-    fa::Float64; fb::Float64; fc::Float64
-    root::Float64; x_lower::Float64; x_upper::Float64
+    a::Float64
+    b::Float64
+    c::Float64
+    d::Float64
+    e::Float64
+    fa::Float64
+    fb::Float64
+    fc::Float64
+    root::Float64
+    x_lower::Float64
+    x_upper::Float64
     BrentSolver(f) = new(f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 end
 
@@ -176,9 +188,12 @@ function brent_root_set!(s::BrentSolver, x_lower, x_upper)
     s.x_upper = x_upper
     f_lower = s.f(x_lower)
     f_upper = s.f(x_upper)
-    s.a = x_lower; s.fa = f_lower
-    s.b = x_upper; s.fb = f_upper
-    s.c = x_upper; s.fc = f_upper
+    s.a = x_lower
+    s.fa = f_lower
+    s.b = x_upper
+    s.fb = f_upper
+    s.c = x_upper
+    s.fc = f_upper
     s.d = x_upper - x_lower
     s.e = x_upper - x_lower
     return !((f_lower < 0.0 && f_upper < 0.0) || (f_lower > 0.0 && f_upper > 0.0))
@@ -191,20 +206,28 @@ function brent_root_iterate!(s::BrentSolver)
 
     if (fb < 0 && fc < 0) || (fb > 0 && fc > 0)
         ac_equal = true
-        c = a; fc = fa
-        d = b - a; e = b - a
+        c = a
+        fc = fa
+        d = b - a
+        e = b - a
     end
     if abs(fc) < abs(fb)
         ac_equal = true
-        a = b; b = c; c = a
-        fa = fb; fb = fc; fc = fa
+        a = b
+        b = c
+        c = a
+        fa = fb
+        fb = fc
+        fc = fa
     end
 
     tol = 0.5 * eps(Float64) * abs(b)
     m = 0.5 * (c - b)
 
     if fb == 0
-        s.root = b; s.x_lower = b; s.x_upper = b
+        s.root = b
+        s.x_lower = b
+        s.x_upper = b
         return
     end
     if abs(m) <= tol
@@ -214,7 +237,8 @@ function brent_root_iterate!(s::BrentSolver)
     end
 
     if abs(e) < tol || abs(fa) <= abs(fb)
-        d = m; e = m                      # use bisection
+        d = m
+        e = m                      # use bisection
     else
         s_ = fb / fa                      # use inverse cubic interpolation
         if ac_equal
@@ -232,13 +256,16 @@ function brent_root_iterate!(s::BrentSolver)
             p = -p
         end
         if 2 * p < min(3 * m * q - abs(tol * q), abs(e * q))
-            e = d; d = p / q
+            e = d
+            d = p / q
         else
-            d = m; e = m                  # interpolation failed, fall back to bisection
+            d = m
+            e = m                  # interpolation failed, fall back to bisection
         end
     end
 
-    a = b; fa = fb
+    a = b
+    fa = fb
     b += abs(d) > tol ? d : (m > 0 ? +tol : -tol)
     fb = s.f(b)
 
@@ -257,10 +284,11 @@ end
 # As gsl_root_test_interval
 function root_test_interval(x_lower, x_upper, epsabs, epsrel)
     abs_lower, abs_upper = abs(x_lower), abs(x_upper)
-    min_abs = (x_lower > 0 && x_upper > 0) || (x_lower < 0 && x_upper < 0) ? min(abs_lower, abs_upper) : 0.0
+    min_abs =
+        (x_lower > 0 && x_upper > 0) || (x_lower < 0 && x_upper < 0) ? min(abs_lower, abs_upper) :
+        0.0
     return abs(x_upper - x_lower) < epsabs + epsrel * min_abs
 end
-
 
 #  W R A P P E R   F O R   R O O T   F I N D E R
 
@@ -288,7 +316,7 @@ function ComputeSensitivityCurve(s::BrentSolver)
     x_sens = ones(tSteps + 1)        # As x is always <= 0, 1 signals "no value"
 
     # Loop over all data points in this dataset, using log stepping
-    for j in 0:tSteps
+    for j = 0:tSteps
         # Set running time
         t = min_runtime * t_factor^j
         glbSetRunningTime(EXP_FAR, 1, t)
@@ -336,11 +364,10 @@ function ComputeSensitivityCurve(s::BrentSolver)
         end
 
         # Save results
-        x_sens[j+1] = x
+        x_sens[j + 1] = x
         AddToOutput2(t, x)
     end
 end
-
 
 #  M A I N   P R O G R A M
 
@@ -392,10 +419,10 @@ function main()
     InitOutput(MYFILE3, "Format: Running time   Log(10,s22th13) sens. \n")
     old_sys_errors = glbGetSysErrorsListPtr(EXP_FAR, 1, GLB_ON)   # Fill error array
     sys_dim = glbGetSysDimInExperiment(EXP_FAR, 1, GLB_ON)
-    for i in 1:sys_dim                 # Normalization and energy calibration errors
+    for i = 1:sys_dim                 # Normalization and energy calibration errors
         sys_errors[i] = old_sys_errors[i]
     end
-    for i in sys_dim+1:sys_dim+n_bins
+    for i = (sys_dim + 1):(sys_dim + n_bins)
         sys_errors[i] = 0.02           # Spectral error
     end
     sigma_binbin[] = 0.0               # No bin-to-bin error for the moment
