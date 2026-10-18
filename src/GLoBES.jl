@@ -1,0 +1,247 @@
+"""
+    GLoBES
+
+A Julia implementation of GLoBES, the General Long Baseline Experiment
+Simulator (P. Huber, J. Kopp, M. Lindner, M. Rolinec, W. Winter).
+
+It reads the same AEDL experiment description files and provides the GLoBES
+C API under the same names (`glbInitExperiment`, `glbSetOscillationParameters`,
+`glbSetRates`, `glbChiSys`, `glbChiTheta13`, ...). Differences to the C API:
+
+* Experiment, rule and channel numbers are 1-based. The parameter index
+  constants (`GLB_THETA_12`, ..., `GLB_DM_31`) are 1-based too, so code that
+  uses the constants reads the same as in C.
+* Functions that fill output pointers in C return values instead
+  (e.g. `glbGetEminEmax(exp)` returns `(emin, emax)`).
+* Rate "pointers" are returned as the live Julia vectors.
+
+If you use this code for a publication, cite the GLoBES papers
+(hep-ph/0407333 and hep-ph/0701187), as the original authors ask.
+"""
+module GLoBES
+
+using LinearAlgebra
+using Printf
+using SpecialFunctions: erf
+
+const GLB_VERSION = "3.0.11"
+
+# ---------------------------------------------------------------------------
+#  Constants
+# ---------------------------------------------------------------------------
+
+const GLB_THETA_12 = 1
+const GLB_THETA_13 = 2
+const GLB_THETA_23 = 3
+const GLB_DELTA_CP = 4
+const GLB_DM_21 = 5
+const GLB_DM_31 = 6
+const GLB_DM_SOL = GLB_DM_21
+const GLB_DM_ATM = GLB_DM_31
+
+const GLB_OFF = 0
+const GLB_ON = 1
+
+const GLB_W_EFF = 1
+const GLB_WO_EFF = 2
+const GLB_W_BG = 3
+const GLB_WO_BG = 4
+const GLB_W_COEFF = 5
+const GLB_WO_COEFF = 6
+
+const GLB_FIXED = 0
+const GLB_FREE = 1
+const GLB_UNDEFINED = -2
+
+const GLB_PRE = 1
+const GLB_POST = 2
+
+const GLB_MIN_NESTED_POWELL = 0
+const GLB_MIN_POWELL = 1
+const GLB_MIN_DEFAULT = GLB_MIN_NESTED_POWELL
+
+const GLB_EFF = 1
+const GLB_BG = 2
+const GLB_SIG = 3
+
+const GLB_ALL = -1
+
+const GLB_EARTH_RADIUS = 6371.0
+const GLB_EV_TO_KM_FACTOR = 1.9747235e-10
+GLB_KM_TO_EV(x) = x / GLB_EV_TO_KM_FACTOR
+GLB_EV_TO_KM(x) = x * GLB_EV_TO_KM_FACTOR
+
+const GLB_NAN = NaN
+
+# ---------------------------------------------------------------------------
+#  Error handling
+# ---------------------------------------------------------------------------
+
+struct GLoBESError <: Exception
+    msg::String
+end
+Base.showerror(io::IO, e::GLoBESError) = print(io, "GLoBES fatal error: ", e.msg)
+
+const verbosity = Ref(1)
+
+"""
+    glbSetVerbosityLevel(level)
+
+0 = silent, 1 = errors (default), 2 = errors and warnings.
+"""
+glbSetVerbosityLevel(level::Integer) = (verbosity[] = level; 0)
+
+glb_error(msg) = (verbosity[] >= 1 && println(stderr, "GLoBES: ERROR: ", msg); nothing)
+glb_warning(msg) = (verbosity[] >= 2 && println(stderr, "GLoBES: Warning: ", msg); nothing)
+glb_fatal(msg) = throw(GLoBESError(msg))
+
+# ---------------------------------------------------------------------------
+#  Data files: current directory, then the directories in GLB_PATH
+# ---------------------------------------------------------------------------
+
+const glb_path_vector = String[]
+
+function glb_setup_path!()
+    empty!(glb_path_vector)
+    push!(glb_path_vector, pwd())
+    p = get(ENV, "GLB_PATH", "")
+    for d in split(p, ':')
+        isempty(d) || push!(glb_path_vector, d)
+    end
+end
+
+"""
+    glb_find_file(name, extra_dir=nothing) -> path or nothing
+
+Locate a data file like GLoBES does: absolute path, then the current
+directory and the `GLB_PATH` directories. `extra_dir` (the directory of the
+including AEDL file) is tried after the current directory.
+"""
+function glb_find_file(name::AbstractString, extra_dir=nothing)
+    isabspath(name) && return isfile(name) ? String(name) : nothing
+    dirs = String[pwd()]
+    extra_dir !== nothing && push!(dirs, extra_dir)
+    append!(dirs, glb_path_vector)
+    for d in dirs
+        f = joinpath(d, name)
+        isfile(f) && return f
+    end
+    return nothing
+end
+
+include("types.jl")
+include("probability.jl")
+include("profile.jl")
+include("fluxes.jl")
+include("smear.jl")
+
+# ---------------------------------------------------------------------------
+#  Global state (the C library keeps all of this in static variables)
+# ---------------------------------------------------------------------------
+
+builtin_prior(p, ud) = builtin_prior_impl(p)
+noop_hook(p, ud) = 0
+
+mutable struct GlobalState
+    experiments::Vector{Experiment}
+    oscp::Int
+    engine::StandardEngine
+    prob_func::Function
+    set_func::Function
+    get_func::Function
+    prob_user_data::Any
+    P::Matrix{Float64}
+    Pbar::Matrix{Float64}
+    sys_list::Vector{ChiFunction}
+    minimizer::Int
+    prior_func::Function
+    starting_values_hook::Function
+    input_errors_hook::Function
+    prior_user_data::Any
+    input_errors::GlbParams
+    central_values::GlbParams
+    para_tab::Vector{Int}
+    index_tab::Vector{Int}
+    n_free::Int
+    n_fix::Int
+    fix_params::Vector{Float64}
+    count::Int
+    single_experiment::Int
+    single_rule::Int
+    last_priors::Float64
+    initialized::Bool
+end
+
+const STATE = GlobalState(Experiment[], 6, StandardEngine(), (a...) -> 0, (a...) -> 0, (a...) -> nothing,
+                          nothing, zeros(3, 3), zeros(3, 3), ChiFunction[], GLB_MIN_DEFAULT,
+                          builtin_prior, noop_hook, noop_hook, nothing,
+                          GlbParams(fill(NaN, 6), Float64[], 0), GlbParams(fill(NaN, 6), Float64[], 0),
+                          Int[], Int[], 0, 0, Float64[], 0, GLB_ALL, GLB_ALL, 0.0, false)
+
+include("experiment.jl")
+include("aedl.jl")
+include("systematics.jl")
+include("minimize.jl")
+include("api.jl")
+
+function __init__()
+    glbInit()
+end
+
+# ---------------------------------------------------------------------------
+#  Exports
+# ---------------------------------------------------------------------------
+
+export GLB_THETA_12, GLB_THETA_13, GLB_THETA_23, GLB_DELTA_CP, GLB_DM_21, GLB_DM_31,
+       GLB_DM_SOL, GLB_DM_ATM, GLB_OFF, GLB_ON, GLB_W_EFF, GLB_WO_EFF, GLB_W_BG, GLB_WO_BG,
+       GLB_W_COEFF, GLB_WO_COEFF, GLB_FIXED, GLB_FREE, GLB_PRE, GLB_POST,
+       GLB_MIN_NESTED_POWELL, GLB_MIN_POWELL, GLB_MIN_DEFAULT, GLB_EFF, GLB_BG, GLB_SIG,
+       GLB_ALL, GLB_EARTH_RADIUS, GLB_EV_TO_KM_FACTOR, GLB_KM_TO_EV, GLB_EV_TO_KM, GLB_NAN
+
+export GlbParams, GlbProjection, Experiment, GLoBESError, AEDLError
+
+export glbInit, glbInitExperiment, glbClearExperimentList, glbNumOfExps, glbGetExperiment,
+       glbSetVerbosityLevel, glbVersionOfExperiment,
+       glbAllocParams, glbFreeParams, glbDefineParams, glbCopyParams, glbPrintParams,
+       glbSetOscParams, glbGetOscParams, glbSetDensityParams, glbGetDensityParams,
+       glbSetIteration, glbGetIteration,
+       glbAllocProjection, glbFreeProjection, glbDefineProjection, glbCopyProjection,
+       glbPrintProjection, glbSetProjectionFlag, glbGetProjectionFlag,
+       glbSetDensityProjectionFlag, glbGetDensityProjectionFlag, glbSetProjection, glbGetProjection,
+       glbSetOscillationParameters, glbGetOscillationParameters, glbSetRates,
+       glbSetCentralValues, glbGetCentralValues, glbSetStartingValues, glbGetStartingValues,
+       glbSetInputErrors, glbGetInputErrors,
+       glbChiSys, glbChiNP, glbChiTheta12, glbChiTheta13, glbChiTheta23, glbChiDelta,
+       glbChiDm21, glbChiDm31, glbChiTheta13Delta, glbChiAll, glbSelectMinimizer,
+       glbRegisterPriorFunction, glbRegisterProbabilityEngine, glbGetNumOfOscParams,
+       glbDefineChiFunction, glbSetChiFunction, glbGetChiFunction, glbGetChiFunctionPtr,
+       glbGetChiFunctionPtrInExperiment, glbSetErrorDim, glbGetErrorDim, glbGetSysDim,
+       glbGetSysDimInExperiment, glbSwitchSystematics, glbGetSysOnOffState,
+       glbSetSignalErrors, glbGetSignalErrors, glbSetBGErrors, glbGetBGErrors,
+       glbSetBGCenters, glbGetBGCenters, glbSetSignalStartingValues, glbGetSignalStartingValues,
+       glbSetBGStartingValues, glbGetBGStartingValues, glbSetSysErrorsList, glbGetSysErrorsListPtr,
+       glbSetSysStartingValuesList, glbGetSysStartingValuesListPtr, glbShiftEnergyScale,
+       glbChiSpectrumTilt, glbChiNoSysSpectrum, glbChiSpectrumOnly, glbChiTotalRatesTilt,
+       glbChiNoSysTotalRates, glbChiSpectrumCalib, glbChiZero, glb_likelihood, glb_prior,
+       glbGetRuleRatePtr, glbGetSignalRatePtr, glbGetBGRatePtr, glbGetSignalFitRatePtr,
+       glbGetBGFitRatePtr, glbGetChannelRatePtr, glbGetChannelFitRatePtr, glbGetEfficiencyPtr,
+       glbGetBackgroundPtr, glbGetChannelRates, glbGetUserData, glbTotalRuleRate,
+       glbShowRuleRates, glbShowChannelRates, glbShowChannelProbs,
+       glbGetNumberOfBins, glbGetNumberOfSamplingPoints, glbGetNumberOfChannels,
+       glbGetNumberOfRules, glbGetNumberOfFluxes, glbGetBinSizeListPtr, glbGetBinCentersListPtr,
+       glbGetSamplingStepsizeListPtr, glbGetSamplingPointsListPtr, glbGetEminEmax,
+       glbGetEnergyWindow, glbSetEnergyWindow, glbGetEnergyWindowBins, glbGetLengthOfRule,
+       glbGetChannelInRule, glbGetCoefficientInRule, glbGetNormalizationInRule,
+       glbNameToValue, glbValueToName, glbSetTargetMass, glbGetTargetMass,
+       glbSetSourcePower, glbGetSourcePower, glbSetRunningTime, glbGetRunningTime,
+       glbSetFilterState, glbGetFilterState, glbSetFilterStateInExperiment,
+       glbGetFilterStateInExperiment, glbSetFilter, glbGetFilter, glbSetFilterInExperiment,
+       glbGetFilterInExperiment, glbFlux, glbXSection,
+       glbLoadProfileData, glbStaceyProfile, glbAverageDensityProfile, glbGetProfileData,
+       glbGetProfileDataInExperiment, glbSetProfileDataInExperiment, glbSetBaselineInExperiment,
+       glbGetBaselineInExperiment, glbGetProfileTypeInExperiment,
+       glbVacuumProbability, glbConstantDensityProbability, glbProfileProbability,
+       glbFilteredConstantDensityProbability,
+       glbDefineAEDLVariable, glbDefineAEDLList, glbClearAEDLVariables
+
+end # module

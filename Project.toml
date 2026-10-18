@@ -1,0 +1,19 @@
+name = "GLoBES"
+uuid = "367f8d2e-8d77-4eed-9bd4-73b32ac618fb"
+authors = ["Arnav Kapoor <kapoorarnav43@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+
+[compat]
+SpecialFunctions = "2"
+julia = "1.9"
+
+[extras]
+Test = "8dfe90a9-3c7b-41a8-a1a0-5dbaf9f8e8c6"
+
+[targets]
+test = ["Test"]

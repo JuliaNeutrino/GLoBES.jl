@@ -1,0 +1,7 @@
+# Package environments resolve their own dependencies
+Manifest.toml
+# Output files of the examples
+test*.dat
+gl-*.dat
+# Compiled reference generator
+test/reference/a.out
