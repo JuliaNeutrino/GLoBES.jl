@@ -4,6 +4,8 @@ exclude = [
   "^https://github.com/.*/releases/tag/v.*$",
   "^https://arnavk23.github.io/GLoBES.jl/stable$",
   "^https://arnavk23.github.io/GLoBES.jl/dev$",
+  # copied from docs/manual by docs/make.jl
+  "docs/src/assets/globes-jl-manual.pdf$",
 ]
 
 exclude_path = [

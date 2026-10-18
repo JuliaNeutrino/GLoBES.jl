@@ -24,6 +24,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
+# Documenter deploys to gh-pages with GITHUB_TOKEN
+permissions:
+  actions: write
+  contents: write
+  pull-requests: read
+  statuses: write
+
 jobs:
   docs:
     name: Documentation
