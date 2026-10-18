@@ -388,11 +388,11 @@ end
 #  Projections
 # ---------------------------------------------------------------------------
 
-n_osc() = STATE.oscp
-n_exps() = length(STATE.experiments)
+n_osc() = state().oscp
+n_exps() = length(state().experiments)
 
 function select_projection!(vec::AbstractVector{Int}, check::Bool)
-    st = STATE
+    st = state()
     N = n_osc() + n_exps()
     resize!(st.para_tab, N)
     bad = false
@@ -428,7 +428,7 @@ end
 Copy the current projection into `proj`.
 """
 function glbGetProjection(proj::GlbProjection)
-    st = STATE
+    st = state()
     length(st.para_tab) < n_osc() + n_exps() && reset_projection!()
     proj.osc = st.para_tab[1:n_osc()]
     proj.density = st.para_tab[n_osc()+1:n_osc()+n_exps()]
@@ -436,7 +436,7 @@ function glbGetProjection(proj::GlbProjection)
 end
 
 function reset_projection!()
-    st = STATE
+    st = state()
     st.para_tab = fill(GLB_UNDEFINED, n_osc() + n_exps())
     st.index_tab = Int[]
     st.n_free = 0; st.n_fix = 0
@@ -450,7 +450,7 @@ end
 function glbSelectMinimizer(id)
     (id == GLB_MIN_NESTED_POWELL || id == GLB_MIN_POWELL) ||
         (glb_error("glbSelectMinimizer: Invalid minimization algorithm requested"); return -1)
-    STATE.minimizer = id
+    state().minimizer = id
     return 0
 end
 
@@ -459,7 +459,7 @@ end
 # ---------------------------------------------------------------------------
 
 function chi_rule(exp, rule)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     sys = active_sys(r)
     dim = sys.dim
     errors = something(active_errors(r), Float64[])
@@ -473,19 +473,19 @@ function chi_rule(exp, rule)
     return res
 end
 
-chi_exp(exp) = sum((chi_rule(exp, j) for j in eachindex(STATE.experiments[exp].rules)); init=0.0)
+chi_exp(exp) = sum((chi_rule(exp, j) for j in eachindex(state().experiments[exp].rules)); init=0.0)
 
 function set_osc_from_vector!(x)
     p = glbAllocParams()
     p.osc .= x[1:n_osc()]
-    STATE.set_func(p, STATE.prob_user_data)
+    state().set_func(p, state().prob_user_data)
 end
 
 # chi^2 over all experiments for oscillation params x[1:oscp] and densities x[oscp+1:end]
 function chi_all_exps(x)
     set_osc_from_vector!(x)
     for i in 1:n_exps()
-        e = STATE.experiments[i]
+        e = state().experiments[i]
         set_profile_scaling!(e, x[n_osc()+i])
         set_new_rates!(e)
     end
@@ -494,7 +494,7 @@ end
 
 function chi_single_exp(x, exp, rule=GLB_ALL)
     set_osc_from_vector!(x)
-    e = STATE.experiments[exp]
+    e = state().experiments[exp]
     set_profile_scaling!(e, x[n_osc()+1])
     set_new_rates!(e)
     rule == GLB_ALL && return chi_exp(exp)
@@ -517,7 +517,7 @@ end
 `exp` and `rule` may be `GLB_ALL`.
 """
 function glbChiSys(in::GlbParams, exp::Integer=GLB_ALL, rule::Integer=GLB_ALL)
-    st = STATE
+    st = state()
     x = zeros(n_osc() + max(n_exps(), 1))
     for i in 1:n_osc()
         x[i] = in.osc[i]
@@ -560,7 +560,7 @@ function glbChiSys(in::GlbParams, exp::Integer=GLB_ALL, rule::Integer=GLB_ALL)
 end
 
 function fill_prior_defaults!(proj::GlbProjection, msg)
-    st = STATE
+    st = state()
     op = glbAllocParams()
     glbGetOscillationParameters(op)
     for i in 1:n_osc()
@@ -593,7 +593,7 @@ function fill_prior_defaults!(proj::GlbProjection, msg)
 end
 
 function internal_chi_np(in::GlbParams, out)
-    st = STATE
+    st = state()
     st.single_experiment = GLB_ALL
     select_projection!(st.para_tab, true)
     out !== nothing && glbCopyParams(in, out)
@@ -657,7 +657,7 @@ function internal_chi_np(in::GlbParams, out)
 end
 
 function internal_single_chi_np(in::GlbParams, out, exp)
-    st = STATE
+    st = state()
     (1 <= exp <= n_exps()) || (glb_error("glbChiNP: invalid experiment number"); return -1.0)
     st.single_experiment = exp
     # Projection restricted to this experiment's density
@@ -758,7 +758,7 @@ function glbChiNP(in::GlbParams, out::Union{Nothing,GlbParams}=nothing, exp::Int
 end
 
 function chi_with_projection(in, out, exp, swit)
-    st = STATE
+    st = state()
     length(st.para_tab) < n_osc() + n_exps() && reset_projection!()
     buff = copy(st.para_tab)
     select_projection!(swit, true)
@@ -834,7 +834,7 @@ glbChiAll(in, out=nothing, exp=GLB_ALL) = chi_with_projection(in, out, exp, fill
 # ---------------------------------------------------------------------------
 
 function hybrid_chi_callback(x, new_rates)
-    st = STATE
+    st = state()
     if new_rates
         p = glbAllocParams()
         j = 1
@@ -876,7 +876,7 @@ function hybrid_chi_callback(x, new_rates)
 end
 
 function invoke_hybrid_minimizer!(exp, rule, x)
-    st = STATE
+    st = state()
     N = n_osc() + n_exps()
     st.fix_params = copy(x[1:N])
     P = Float64[]

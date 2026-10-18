@@ -80,7 +80,7 @@ const GLB_NAN = NaN
 struct GLoBESError <: Exception
     msg::String
 end
-Base.showerror(io::IO, e::GLoBESError) = print(io, "GLoBES fatal error: ", e.msg)
+Base.showerror(io::IO, e::GLoBESError) = print(io, "GLoBES error: ", e.msg)
 
 const verbosity = Ref(1)
 
@@ -91,7 +91,26 @@ const verbosity = Ref(1)
 """
 glbSetVerbosityLevel(level::Integer) = (verbosity[] = level; 0)
 
-glb_error(msg) = (verbosity[] >= 1 && println(stderr, "GLoBES: ERROR: ", msg); nothing)
+# The glb* functions report errors like the C library: print and carry on with
+# a default or an error code. The high-level API runs them in `strict` mode,
+# where errors throw a GLoBESError instead.
+const STRICT = Ref(0)
+
+function glb_error(msg)
+    STRICT[] > 0 && throw(GLoBESError(msg))
+    verbosity[] >= 1 && println(stderr, "GLoBES: ERROR: ", msg)
+    return nothing
+end
+
+function strict(f)
+    STRICT[] += 1
+    try
+        return f()
+    finally
+        STRICT[] -= 1
+    end
+end
+
 glb_warning(msg) = (verbosity[] >= 2 && println(stderr, "GLoBES: Warning: ", msg); nothing)
 glb_fatal(msg) = throw(GLoBESError(msg))
 
@@ -143,7 +162,7 @@ builtin_prior(p, ud) = builtin_prior_impl(p)
 noop_hook(p, ud) = 0
 
 mutable struct GlobalState
-    experiments::Vector{Experiment}
+    experiments::Vector{ExperimentData}
     oscp::Int
     engine::StandardEngine
     prob_func::Function
@@ -170,19 +189,40 @@ mutable struct GlobalState
     single_rule::Int
     last_priors::Float64
     initialized::Bool
+    truth::Union{Nothing,GlbParams}   # parameters of the simulated data (high-level API)
+    extra_names::Vector{Symbol}       # names of non-standard engine parameters (high-level API)
 end
 
-const STATE = GlobalState(Experiment[], 6, StandardEngine(), (a...) -> 0, (a...) -> 0, (a...) -> nothing,
+new_state() = GlobalState(ExperimentData[], 6, StandardEngine(), (a...) -> 0, (a...) -> 0, (a...) -> nothing,
                           nothing, zeros(3, 3), zeros(3, 3), ChiFunction[], GLB_MIN_DEFAULT,
                           builtin_prior, noop_hook, noop_hook, nothing,
                           GlbParams(fill(NaN, 6), Float64[], 0), GlbParams(fill(NaN, 6), Float64[], 0),
-                          Int[], Int[], 0, 0, Float64[], 0, GLB_ALL, GLB_ALL, 0.0, false)
+                          Int[], Int[], 0, 0, Float64[], 0, GLB_ALL, GLB_ALL, 0.0, false, nothing, Symbol[])
+
+"""
+    Setup()
+
+An independent GLoBES simulation: its own experiments, simulated data,
+probability engine, χ² functions, priors and minimizer settings.
+
+Most scripts never need more than the default setup, which every function
+uses unless told otherwise. Use [`with_setup`](@ref) to work with another.
+"""
+mutable struct Setup
+    state::GlobalState
+end
+
+const CURRENT_SETUP = Ref{Setup}(Setup(new_state()))
+
+# The engine reads and changes the state of the current setup
+@inline state() = CURRENT_SETUP[].state
 
 include("experiment.jl")
 include("aedl.jl")
 include("systematics.jl")
 include("minimize.jl")
 include("api.jl")
+include("highlevel.jl")
 
 function __init__()
     glbInit()
@@ -198,7 +238,20 @@ export GLB_THETA_12, GLB_THETA_13, GLB_THETA_23, GLB_DELTA_CP, GLB_DM_21, GLB_DM
        GLB_MIN_NESTED_POWELL, GLB_MIN_POWELL, GLB_MIN_DEFAULT, GLB_EFF, GLB_BG, GLB_SIG,
        GLB_ALL, GLB_EARTH_RADIUS, GLB_EV_TO_KM_FACTOR, GLB_KM_TO_EV, GLB_EV_TO_KM, GLB_NAN
 
-export GlbParams, GlbProjection, Experiment, GLoBESError, AEDLError
+export GlbParams, GlbProjection, ExperimentData, GLoBESError, AEDLError
+
+# High-level API
+export Setup, current_setup, with_setup, OscParams, with_param,
+       Experiment, load_experiments, experiments, clear_experiments!, name,
+       baseline, baseline!, target_mass, target_mass!, running_time, running_time!,
+       source_power, source_power!, energy_range, bin_centers, bin_widths,
+       density_profile, density_profile!, prem_profile, average_profile,
+       rule_names, channel_names, energy_window, energy_window!, energy_window_bins,
+       simulate!, simulated_params, event_rates, total_events, channel_rates,
+       fit_rates, true_rates, probability, chi2, marginalize, FitResult, minimizer!,
+       chi2_scan, systematics!, chi2_function, chi2_function!, systematic_errors,
+       systematic_errors!, define_chi2, poisson_chi2, energy_scale_shift,
+       probability_engine!, standard_engine!, flux, cross_section
 
 export glbInit, glbInitExperiment, glbClearExperimentList, glbNumOfExps, glbGetExperiment,
        glbSetVerbosityLevel, glbVersionOfExperiment,

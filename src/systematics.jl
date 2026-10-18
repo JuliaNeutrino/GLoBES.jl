@@ -45,7 +45,7 @@ Gaussian pull term `((x - center)/sigma)^2`.
 @inline glb_prior(x, center, sigma) = ((x - center) / sigma)^2
 
 function find_chi_function(name)
-    for s in STATE.sys_list
+    for s in state().sys_list
         s.name == name && return s
     end
     glb_error("glbFindChiFunctionByName: Unknown chi^2 function specified")
@@ -68,7 +68,7 @@ end
 # ---------------------------------------------------------------------------
 
 function glbChiSpectrumTilt(exp, rule, n_params, x, errors, user_data)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     true_rates = e.rates0[rule]; sig = e.rates1[rule]; bg = e.rates1BG[rule]
     bin_centers = e.smear_data[1].bincenter
     emin, emax = e.emin, e.emax
@@ -90,7 +90,7 @@ function glbChiSpectrumTilt(exp, rule, n_params, x, errors, user_data)
 end
 
 function glbChiNoSysSpectrum(exp, rule, n_params, x, errors, user_data)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     true_rates = e.rates0[rule]; sig = e.rates1[rule]; bg = e.rates1BG[rule]
     bgc = r.bg_centers[1]
     chi2 = 0.0
@@ -101,7 +101,7 @@ function glbChiNoSysSpectrum(exp, rule, n_params, x, errors, user_data)
 end
 
 function glbChiSpectrumOnly(exp, rule, n_params, x, errors, user_data)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     true_rates = e.rates0[rule]; sig = e.rates1[rule]; bg = e.rates1BG[rule]
     signal_norm = 1.0 + x[1]
     bgc = r.bg_centers[1]
@@ -113,7 +113,7 @@ function glbChiSpectrumOnly(exp, rule, n_params, x, errors, user_data)
 end
 
 function glbChiTotalRatesTilt(exp, rule, n_params, x, errors, user_data)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     true_rates = e.rates0[rule]; sig = e.rates1[rule]; bg = e.rates1BG[rule]
     bin_centers = e.smear_data[1].bincenter
     emin, emax = e.emin, e.emax
@@ -136,7 +136,7 @@ function glbChiTotalRatesTilt(exp, rule, n_params, x, errors, user_data)
 end
 
 function glbChiNoSysTotalRates(exp, rule, n_params, x, errors, user_data)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     true_rates = e.rates0[rule]; sig = e.rates1[rule]; bg = e.rates1BG[rule]
     bgc = r.bg_centers[1]
     total_fit = 0.0; total_true = 0.0
@@ -148,7 +148,7 @@ function glbChiNoSysTotalRates(exp, rule, n_params, x, errors, user_data)
 end
 
 function glbChiSpectrumCalib(exp, rule, n_params, x, errors, user_data)
-    e = STATE.experiments[exp]; r = e.rules[rule]
+    e = state().experiments[exp]; r = e.rules[rule]
     n_bins = e.numofbins
     true_rates = e.rates0[rule]
     bg_norm_center, bg_tilt_center = r.bg_centers[1], r.bg_centers[2]
@@ -263,11 +263,11 @@ gets 1-based experiment/rule numbers and a vector `x` of `dim` nuisance paramete
 """
 function glbDefineChiFunction(chi_func::Function, dim::Integer, name::AbstractString, user_data=nothing)
     dim < 0 && (glb_error("glbDefineChiFunction: Dimension of parameter space must be >= 0"); return -1)
-    pushfirst!(STATE.sys_list, ChiFunction(chi_func, dim, String(name), user_data))
+    pushfirst!(state().sys_list, ChiFunction(chi_func, dim, String(name), user_data))
     return 0
 end
 
-function set_chi_function_in_rule!(e::Experiment, rule, on_off, sys_id, errors)
+function set_chi_function_in_rule!(e::ExperimentData, rule, on_off, sys_id, errors)
     r = e.rules[rule]
     sys = find_chi_function(sys_id)
     sys === nothing && return -1
@@ -311,12 +311,12 @@ end
 
 # Iterate over (experiment, rule) pairs, expanding GLB_ALL
 function foreach_exp_rule(f, exp, rule)
-    exps = exp == GLB_ALL ? (1:length(STATE.experiments)) : (exp:exp)
+    exps = exp == GLB_ALL ? (1:length(state().experiments)) : (exp:exp)
     for i in exps
-        (1 <= i <= length(STATE.experiments)) || (glb_error("Invalid experiment number"); return -1)
-        rules = rule == GLB_ALL ? (1:length(STATE.experiments[i].rules)) : (rule:rule)
+        (1 <= i <= length(state().experiments)) || (glb_error("Invalid experiment number"); return -1)
+        rules = rule == GLB_ALL ? (1:length(state().experiments[i].rules)) : (rule:rule)
         for j in rules
-            (1 <= j <= length(STATE.experiments[i].rules)) || (glb_error("Invalid rule number"); return -1)
+            (1 <= j <= length(state().experiments[i].rules)) || (glb_error("Invalid rule number"); return -1)
             f(i, j) != 0 && return -1
         end
     end
@@ -330,7 +330,7 @@ Select the χ² function `name` for systematics state `on_off` (`GLB_ON`/`GLB_OF
 `exp` and `rule` may be `GLB_ALL`.
 """
 glbSetChiFunction(exp, rule, on_off, sys_id, errors=nothing) =
-    foreach_exp_rule((i, j) -> set_chi_function_in_rule!(STATE.experiments[i], j, on_off, sys_id, errors), exp, rule)
+    foreach_exp_rule((i, j) -> set_chi_function_in_rule!(state().experiments[i], j, on_off, sys_id, errors), exp, rule)
 
 """
     glbGetChiFunction(exp, rule, on_off) -> String
@@ -378,7 +378,7 @@ Switch between the `GLB_ON` and `GLB_OFF` systematics definitions.
 """
 function glbSwitchSystematics(exp, rule, on_off)
     (on_off == GLB_ON || on_off == GLB_OFF) || (glb_error("glbSwitchSystematics: Invalid value for on_off"); return -1)
-    foreach_exp_rule((i, j) -> (STATE.experiments[i].rules[j].sys_on_off = on_off; 0), exp, rule)
+    foreach_exp_rule((i, j) -> (state().experiments[i].rules[j].sys_on_off = on_off; 0), exp, rule)
 end
 
 glbGetSysOnOffState(exp, rule) = (r = getrule(exp, rule); r === nothing ? -1 : r.sys_on_off)
@@ -406,7 +406,7 @@ Set signal normalization and tilt errors (for the GLoBES 2.0.11-style χ² funct
 function glbSetSignalErrors(exp, rule, norm, tilt)
     (norm > 0 && tilt > 0) || (glb_error("glbSetSignalErrors: Errors must be > 0"); return -1)
     foreach_exp_rule(exp, rule) do i, j
-        r = STATE.experiments[i].rules[j]
+        r = state().experiments[i].rules[j]
         r.signal_errors .= (norm, tilt)
         sync_2011!(r, GLB_ON, 0, r.signal_errors, :errors)
         sync_2011!(r, GLB_OFF, 0, r.signal_errors, :errors)
@@ -423,7 +423,7 @@ Set background normalization and tilt errors.
 function glbSetBGErrors(exp, rule, norm, tilt)
     (norm > 0 && tilt > 0) || (glb_error("glbSetBGErrors: Errors must be > 0"); return -1)
     foreach_exp_rule(exp, rule) do i, j
-        r = STATE.experiments[i].rules[j]
+        r = state().experiments[i].rules[j]
         r.bg_errors .= (norm, tilt)
         sync_2011!(r, GLB_ON, 2, r.bg_errors, :errors)
         sync_2011!(r, GLB_OFF, 2, r.bg_errors, :errors)
@@ -438,12 +438,12 @@ glbGetBGErrors(exp, rule) = (r = getrule(exp, rule); r === nothing ? nothing : (
 Central values of background normalization and tilt (`@backgroundcenter`).
 """
 glbSetBGCenters(exp, rule, norm, tilt) =
-    foreach_exp_rule((i, j) -> (STATE.experiments[i].rules[j].bg_centers .= (norm, tilt); 0), exp, rule)
+    foreach_exp_rule((i, j) -> (state().experiments[i].rules[j].bg_centers .= (norm, tilt); 0), exp, rule)
 glbGetBGCenters(exp, rule) = (r = getrule(exp, rule); r === nothing ? nothing : (r.bg_centers[1], r.bg_centers[2]))
 
 function glbSetSignalStartingValues(exp, rule, norm, tilt)
     foreach_exp_rule(exp, rule) do i, j
-        r = STATE.experiments[i].rules[j]
+        r = state().experiments[i].rules[j]
         r.signal_startvals .= (norm, tilt)
         sync_2011!(r, GLB_ON, 0, r.signal_startvals, :startvals)
         sync_2011!(r, GLB_OFF, 0, r.signal_startvals, :startvals)
@@ -454,7 +454,7 @@ glbGetSignalStartingValues(exp, rule) = (r = getrule(exp, rule); r === nothing ?
 
 function glbSetBGStartingValues(exp, rule, norm, tilt)
     foreach_exp_rule(exp, rule) do i, j
-        r = STATE.experiments[i].rules[j]
+        r = state().experiments[i].rules[j]
         r.bg_startvals .= (norm, tilt)
         sync_2011!(r, GLB_ON, 2, r.bg_startvals, :startvals)
         sync_2011!(r, GLB_OFF, 2, r.bg_startvals, :startvals)
@@ -486,7 +486,7 @@ end
 Set the systematical errors passed to the χ² function of a rule.
 """
 glbSetSysErrorsList(exp, rule, on_off, list) =
-    foreach_exp_rule((i, j) -> set_list_in_rule!(STATE.experiments[i].rules[j], on_off, list, :errors), exp, rule)
+    foreach_exp_rule((i, j) -> set_list_in_rule!(state().experiments[i].rules[j], on_off, list, :errors), exp, rule)
 
 glbGetSysErrorsListPtr(exp, rule, on_off) =
     (r = getrule(exp, rule); r === nothing ? nothing : (on_off == GLB_ON ? r.sys_on_errors : r.sys_off_errors))
@@ -497,13 +497,13 @@ glbGetSysErrorsListPtr(exp, rule, on_off) =
 Starting values for the nuisance-parameter minimization of a rule.
 """
 glbSetSysStartingValuesList(exp, rule, on_off, list) =
-    foreach_exp_rule((i, j) -> set_list_in_rule!(STATE.experiments[i].rules[j], on_off, list, :startvals), exp, rule)
+    foreach_exp_rule((i, j) -> set_list_in_rule!(state().experiments[i].rules[j], on_off, list, :startvals), exp, rule)
 
 glbGetSysStartingValuesListPtr(exp, rule, on_off) =
     (r = getrule(exp, rule); r === nothing ? nothing : (on_off == GLB_ON ? r.sys_on_startvals : r.sys_off_startvals))
 
 function register_builtin_chi_functions!()
-    empty!(STATE.sys_list)
+    empty!(state().sys_list)
     glbDefineChiFunction(glbChiSpectrumTilt, 4, "chiSpectrumTilt")
     glbDefineChiFunction(glbChiNoSysSpectrum, 0, "chiNoSysSpectrum")
     glbDefineChiFunction(glbChiSpectrumOnly, 1, "chiSpectrumOnly")

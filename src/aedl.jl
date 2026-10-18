@@ -137,8 +137,8 @@ const GROUP_NAMES = ("rule", "channel", "energy", "cross", "flux", "nuflux")
 mutable struct AEDLParser
     toks::Vector{Token}
     pos::Int
-    exp::Experiment
-    finished::Vector{Experiment}
+    exp::ExperimentData
+    finished::Vector{ExperimentData}
     context::String
     loc_count::Int
     vars::Dict{String,Float64}
@@ -156,7 +156,7 @@ const aedl_presym_vars = Dict{String,Float64}()
 const aedl_presym_lists = Dict{String,Vector{Float64}}()
 
 function new_parser(toks, filename)
-    p = AEDLParser(toks, 1, Experiment(), Experiment[], "global", -1,
+    p = AEDLParser(toks, 1, ExperimentData(), ExperimentData[], "global", -1,
                    Dict{String,Float64}(), Dict{String,Vector{Float64}}(),
                    Dict{String,Tuple{String,Int}}(), Dict{String,Int}(),
                    Flux(), XSec(), SmearData(), filename)
@@ -172,7 +172,7 @@ function reset_parser_tables!(p::AEDLParser)
         p.names[k] = ("energy", -1)
     end
     p.counters = Dict("rule" => 0, "channel" => 0, "energy" => 0, "cross" => 0, "flux" => 0)
-    p.exp = Experiment()
+    p.exp = ExperimentData()
     p.exp.filename = p.filename
     p.context = "global"
     p.loc_count = -1
@@ -883,7 +883,7 @@ function parse_local!(p::AEDLParser, t::Token)
 end
 
 """
-    parse_aedl_file(filename) -> Vector{Experiment}
+    parse_aedl_file(filename) -> Vector{ExperimentData}
 
 Parse an AEDL file into (not yet initialized) experiments. Several
 experiments can be separated by `#NEXT#`.

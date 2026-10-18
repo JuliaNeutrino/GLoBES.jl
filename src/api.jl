@@ -12,7 +12,7 @@ probability engine, the default prior and the built-in χ² functions.
 Called automatically when the package is loaded.
 """
 function glbInit(name::AbstractString="GLoBES.jl")
-    st = STATE
+    st = state()
     glb_setup_path!()
     empty!(st.experiments)
     glbRegisterProbabilityEngine(6, nothing, nothing, nothing, nothing)
@@ -25,7 +25,7 @@ function glbInit(name::AbstractString="GLoBES.jl")
 end
 
 function init_minimizer!()
-    st = STATE
+    st = state()
     st.input_errors = glbAllocParams()
     st.central_values = glbAllocParams()
     reset_projection!()
@@ -53,11 +53,11 @@ function glbInitExperiment(filename::AbstractString)
         glb_error(sprint(showerror, err))
         return -2
     end
-    length(STATE.experiments) + length(exps) > 32 && glb_fatal("Too many experiments!")
+    length(state().experiments) + length(exps) > 32 && glb_fatal("Too many experiments!")
     k = 0
     for e in exps
         k += default_exp!(e)
-        push!(STATE.experiments, e)
+        push!(state().experiments, e)
     end
     init_minimizer!()
     return k != 0 ? -1 : 0
@@ -69,7 +69,7 @@ end
 Remove all experiments.
 """
 function glbClearExperimentList()
-    empty!(STATE.experiments)
+    empty!(state().experiments)
     init_minimizer!()
     return nothing
 end
@@ -79,18 +79,18 @@ end
 
 Number of loaded experiments (`glb_num_of_exps` in C).
 """
-glbNumOfExps() = length(STATE.experiments)
+glbNumOfExps() = length(state().experiments)
 
 """
-    glbGetExperiment(exp) -> Experiment
+    glbGetExperiment(exp) -> ExperimentData
 
 Direct access to the internal experiment structure.
 """
-glbGetExperiment(exp::Integer) = STATE.experiments[exp]
+glbGetExperiment(exp::Integer) = state().experiments[exp]
 
 function getexp(exp)
-    (1 <= exp <= length(STATE.experiments)) || (glb_error("Invalid value for experiment number"); return nothing)
-    return STATE.experiments[exp]
+    (1 <= exp <= length(state().experiments)) || (glb_error("Invalid value for experiment number"); return nothing)
+    return state().experiments[exp]
 end
 
 function getrule(exp, rule)
@@ -111,7 +111,7 @@ glbVersionOfExperiment(exp) = (e = getexp(exp); e === nothing ? nothing : e.vers
 New parameter vector with all entries `NaN` (sized for the current
 probability engine and number of experiments).
 """
-glbAllocParams() = GlbParams(fill(NaN, STATE.oscp), fill(NaN, length(STATE.experiments)), 0)
+glbAllocParams() = GlbParams(fill(NaN, state().oscp), fill(NaN, length(state().experiments)), 0)
 glbFreeParams(p) = nothing
 
 """
@@ -123,7 +123,7 @@ function glbDefineParams(p::GlbParams, th12, th13, th23, delta, dms, dma)
 end
 
 function glbSetOscParams(p::GlbParams, v, which)
-    (1 <= which <= STATE.oscp) || (glb_error("glbSetOscParams: Oscillation list length mismatch"); return nothing)
+    (1 <= which <= state().oscp) || (glb_error("glbSetOscParams: Oscillation list length mismatch"); return nothing)
     p.osc[which] = v
     return p
 end
@@ -172,7 +172,7 @@ glbPrintParams(p::GlbParams) = glbPrintParams(stdout, p)
 Base.show(io::IO, p::GlbParams) = print(io, "GlbParams(osc=", p.osc, ", density=", p.density,
                                         ", iterations=", p.iterations, ")")
 
-glbAllocProjection() = GlbProjection(fill(GLB_UNDEFINED, STATE.oscp), fill(GLB_UNDEFINED, length(STATE.experiments)))
+glbAllocProjection() = GlbProjection(fill(GLB_UNDEFINED, state().oscp), fill(GLB_UNDEFINED, length(state().experiments)))
 glbFreeProjection(p) = nothing
 
 """
@@ -235,7 +235,7 @@ Set the oscillation parameters used by the probability engine.
 """
 function glbSetOscillationParameters(p::GlbParams)
     any(isnan, p.osc) && (glb_error("glbSetOscillationParameters: parameters incompletely defined"); return -1)
-    return STATE.set_func(p, STATE.prob_user_data)
+    return state().set_func(p, state().prob_user_data)
 end
 
 """
@@ -244,16 +244,16 @@ end
 Copy the current oscillation parameters into `p`.
 """
 function glbGetOscillationParameters(p::GlbParams)
-    STATE.get_func(p, STATE.prob_user_data)
+    state().get_func(p, state().prob_user_data)
     return 0
 end
 
-glbGetNumOfOscParams() = STATE.oscp
+glbGetNumOfOscParams() = state().oscp
 
-default_prob_func(P, cp, E, ps, l, d, fs, ud) = probability_matrix!(P, STATE.engine, cp, E, ps, l, d, fs)
-default_set_func(p, ud) = set_oscillation_parameters!(STATE.engine, p.osc)
+default_prob_func(P, cp, E, ps, l, d, fs, ud) = probability_matrix!(P, state().engine, cp, E, ps, l, d, fs)
+default_set_func(p, ud) = set_oscillation_parameters!(state().engine, p.osc)
 function default_get_func(p, ud)
-    v = get_oscillation_parameters(STATE.engine)
+    v = get_oscillation_parameters(state().engine)
     p.osc[1:6] .= v
     return 0
 end
@@ -267,7 +267,7 @@ return 0; `set_func(p::GlbParams, user_data)` and `get_func(p, user_data)`
 set/get the engine's parameters. `nothing` restores the default for that hook.
 """
 function glbRegisterProbabilityEngine(n_params, prob_func, set_func, get_func, user_data=nothing)
-    st = STATE
+    st = state()
     st.oscp = (n_params === nothing || n_params <= 0) ? 6 : n_params
     st.prob_func = prob_func === nothing ? default_prob_func : prob_func
     st.set_func = set_func === nothing ? default_set_func : set_func
@@ -286,7 +286,7 @@ sprior(x, center, sigma) = abs(sigma) < 1e-12 ? 0.0 : (x - center)^2 / sigma^2
 # The default prior: Gaussian terms for all free parameters, using the
 # central values and input errors set with glbSetCentralValues/glbSetInputErrors
 function builtin_prior_impl(p::GlbParams)
-    st = STATE
+    st = state()
     res = 0.0
     N = st.oscp
     length(st.para_tab) < N + length(st.experiments) && return 0.0
@@ -309,7 +309,7 @@ Install a user-defined prior `prior(p::GlbParams, user_data) -> Float64`.
 with the new values. `nothing` for all three restores the built-in prior.
 """
 function glbRegisterPriorFunction(prior, starting, error, user_data=nothing)
-    st = STATE
+    st = state()
     st.prior_func = prior === nothing ? builtin_prior : prior
     st.starting_values_hook = starting === nothing ? noop_hook : starting
     st.input_errors_hook = error === nothing ? noop_hook : error
@@ -323,10 +323,10 @@ end
 Central values of the Gaussian priors for free parameters.
 """
 function glbSetCentralValues(p::GlbParams)
-    glbCopyParams(p, STATE.central_values)
-    return STATE.starting_values_hook(STATE.central_values, STATE.prior_user_data)
+    glbCopyParams(p, state().central_values)
+    return state().starting_values_hook(state().central_values, state().prior_user_data)
 end
-glbGetCentralValues(p::GlbParams) = (glbCopyParams(STATE.central_values, p); 0)
+glbGetCentralValues(p::GlbParams) = (glbCopyParams(state().central_values, p); 0)
 const glbSetStartingValues = glbSetCentralValues
 const glbGetStartingValues = glbGetCentralValues
 
@@ -336,10 +336,10 @@ const glbGetStartingValues = glbGetCentralValues
 Widths of the Gaussian priors (0 = no prior) for free parameters.
 """
 function glbSetInputErrors(p::GlbParams)
-    glbCopyParams(p, STATE.input_errors)
-    return STATE.input_errors_hook(STATE.input_errors, STATE.prior_user_data)
+    glbCopyParams(p, state().input_errors)
+    return state().input_errors_hook(state().input_errors, state().prior_user_data)
 end
-glbGetInputErrors(p::GlbParams) = (glbCopyParams(STATE.input_errors, p); 0)
+glbGetInputErrors(p::GlbParams) = (glbCopyParams(state().input_errors, p); 0)
 
 # ---------------------------------------------------------------------------
 #  Event rates
@@ -352,7 +352,7 @@ Compute the "true" event rates of all experiments for the current
 oscillation parameters.
 """
 function glbSetRates()
-    for e in STATE.experiments
+    for e in state().experiments
         set_profile_scaling!(e, 1.0)
         set_rates!(e)
     end
@@ -366,18 +366,18 @@ Compute the fitted event rates of all experiments for the current
 oscillation parameters.
 """
 function glbSetNewRates()
-    for e in STATE.experiments
+    for e in state().experiments
         set_profile_scaling!(e, 1.0)
         set_new_rates!(e)
     end
     return nothing
 end
 
-glbGetRuleRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : STATE.experiments[exp].rates0[rule])
-glbGetSignalRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : STATE.experiments[exp].SignalRates[rule])
-glbGetBGRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : STATE.experiments[exp].BackgroundRates[rule])
-glbGetSignalFitRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : STATE.experiments[exp].rates1[rule])
-glbGetBGFitRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : STATE.experiments[exp].rates1BG[rule])
+glbGetRuleRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : state().experiments[exp].rates0[rule])
+glbGetSignalRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : state().experiments[exp].SignalRates[rule])
+glbGetBGRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : state().experiments[exp].BackgroundRates[rule])
+glbGetSignalFitRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : state().experiments[exp].rates1[rule])
+glbGetBGFitRatePtr(exp, rule) = (getrule(exp, rule) === nothing ? nothing : state().experiments[exp].rates1BG[rule])
 
 function getchannel_vec(exp, channel, a, b, pre_post)
     e = getexp(exp); e === nothing && return nothing
@@ -477,7 +477,7 @@ Print the binned rates of a rule (all components for `pos = GLB_ALL`).
 function glbShowRuleRates(io::IO, exp, rule, pos, effi, bgi, coeffi, signal)
     getrule(exp, rule) === nothing && return -1
     res = rule_component_rates(exp, rule, pos, effi, bgi, coeffi, signal)
-    print_channel_table(io, STATE.experiments[exp].smear_data[1].bincenter, res)
+    print_channel_table(io, state().experiments[exp].smear_data[1].bincenter, res)
     return 0
 end
 glbShowRuleRates(exp, rule, pos, effi, bgi, coeffi, signal) =
@@ -563,7 +563,7 @@ Change the analysis energy window of a rule (`exp`, `rule` may be `GLB_ALL`).
 """
 function glbSetEnergyWindow(exp, rule, low, high)
     foreach_exp_rule(exp, rule) do i, j
-        e = STATE.experiments[i]; r = e.rules[j]
+        e = state().experiments[i]; r = e.rules[j]
         lo, hi = max(min(low, high), e.emin), min(max(low, high), e.emax)
         r.energy_window .= (lo, hi)
         bc = e.smear_data[1].bincenter
@@ -600,7 +600,7 @@ end
 
 function for_exps(f, exp)
     if exp == GLB_ALL
-        foreach(f, STATE.experiments)
+        foreach(f, state().experiments)
     else
         e = getexp(exp); e === nothing && return -1
         f(e)
@@ -730,7 +730,7 @@ glbGetBaselineInExperiment(exp) = (e = getexp(exp); e === nothing ? -1.0 : e.bas
 
 function prob_helper(initial, final, cp_sign, E, psteps, l, d, fs)
     P = zeros(3, 3)
-    status = STATE.prob_func(P, cp_sign, E, psteps, l, d, fs, STATE.prob_user_data)
+    status = state().prob_func(P, cp_sign, E, psteps, l, d, fs, state().prob_user_data)
     status != 0 && (glb_error("Calculation of oscillation probabilities failed."); return -1.0)
     return P[initial, final]
 end

@@ -102,12 +102,12 @@ Rule() = Rule(Float64[], Int[], Float64[], Int[], GLB_ON, nothing, nothing, noth
               [0.0, 0.0], [1.0, 0.0], [-1.0, -1.0], [-1, -1], -1, -1)
 
 """
-    Experiment
+    ExperimentData
 
 Everything GLoBES knows about one experiment: what the AEDL file defined,
 the precomputed smearing matrices, and the rate buffers. Indices are 1-based.
 """
-mutable struct Experiment
+mutable struct ExperimentData
     version::Union{Nothing,String}
     filename::String
     names::Vector{Tuple{String,String,Int}}   # (name, context, 1-based value)
@@ -165,8 +165,8 @@ mutable struct Experiment
     rates1BG::Vector{Vector{Float64}}
 end
 
-function Experiment()
-    Experiment(nothing, "", Tuple{String,String,Int}[], Flux[], XSec[], nothing, nothing,
+function ExperimentData()
+    ExperimentData(nothing, "", Tuple{String,String,Int}[], Flux[], XSec[], nothing, nothing,
                -1, -1, -1, -1, -1, -1, Channel[], Rule[],
                SmearData[], Vector{Vector{Float64}}[], Vector{Int}[], Vector{Int}[], Bool[],
                -1, -1, -1, -1, -1, -1, Float64[], Float64[], Float64[],
@@ -176,8 +176,8 @@ function Experiment()
                Vector{Float64}[], Vector{Float64}[], Vector{Float64}[], Vector{Float64}[], Vector{Float64}[])
 end
 
-Base.show(io::IO, e::Experiment) =
-    print(io, "Experiment(\"", basename(e.filename), "\", L=", e.baseline, " km, ",
+Base.show(io::IO, e::ExperimentData) =
+    print(io, "ExperimentData(\"", basename(e.filename), "\", L=", e.baseline, " km, ",
           length(e.channels), " channels, ", length(e.rules), " rules, ", e.numofbins, " bins)")
 
 # Oscillation / density parameter vector (glb_params)

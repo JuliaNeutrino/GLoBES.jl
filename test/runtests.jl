@@ -375,5 +375,7 @@ cd(DATADIR) do
             @test glbNumOfExps() == 0
             @test glbGetNumberOfBins(1) == -1
         end
+
+        include("highlevel.jl")
     end
 end

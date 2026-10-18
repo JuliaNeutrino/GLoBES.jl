@@ -41,7 +41,7 @@ upper_bin_boundary(i, sd) = sd.bincenter[i] + sd.binsize[i] * 0.5
 lower_sbin_boundary(i, sd) = sd.simbincenter[i] - sd.simbinsize[i] * 0.5
 upper_sbin_boundary(i, sd) = sd.simbincenter[i] + sd.simbinsize[i] * 0.5
 
-function default_smear!(sd::SmearData, exp::Experiment)
+function default_smear!(sd::SmearData, exp::ExperimentData)
     s = 0
     sd.type == -1 && (exp_error(exp, "Smearing type has not been defined!"); s = -1)
     sd.numofbins <= 0 && (exp_error(exp, "Number of bins must be positive!"); s = -1)
@@ -72,7 +72,7 @@ function default_smear!(sd::SmearData, exp::Experiment)
 end
 
 # Determine the sampling points for a computed smearing matrix
-function setup_smear_matrix_A!(sd::SmearData, exp::Experiment)
+function setup_smear_matrix_A!(sd::SmearData, exp::ExperimentData)
     sd.e_sim_min == -1 && (sd.e_sim_min = exp.simtresh == -1 ? exp.emin : exp.simtresh)
     sd.e_sim_max == -1 && (sd.e_sim_max = exp.simbeam == -1 ? exp.emax : exp.simbeam)
     sd.simbins == -1 && (sd.simbins = exp.simbins == -1 ? exp.numofbins : exp.simbins)
@@ -86,7 +86,7 @@ function setup_smear_matrix_A!(sd::SmearData, exp::Experiment)
 end
 
 # Bin data for user-defined (@energy) migration matrices
-function set_up_smear_data!(sd::SmearData, exp::Experiment)
+function set_up_smear_data!(sd::SmearData, exp::ExperimentData)
     sd.e_min == -1 && (sd.e_min = exp.emin)
     sd.e_max == -1 && (sd.e_max = exp.emax)
     sd.numofbins == -1 && (sd.numofbins = exp.numofbins)
@@ -122,7 +122,7 @@ Gaussian smearing matrix in the compressed GLoBES format: for every
 reconstructed bin `i`, `rows[i]` holds the nonzero entries for sampling
 points `low[i]:up[i]` (1-based). Entries are rounded to 1e-7 as in GLoBES.
 """
-function compute_smearing_matrix(sd::SmearData, exp::Experiment)
+function compute_smearing_matrix(sd::SmearData, exp::ExperimentData)
     if sd.type != GLB_TYPE_A && sd.type != GLB_TYPE_C
         glb_fatal("Smear type out of range")
     end

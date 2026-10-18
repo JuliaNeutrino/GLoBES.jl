@@ -1,15 +1,15 @@
 # Experiment initialization (glbDefaultExp in glb_multiex.c) and the event
 # rate engine (glb_rate_engine.c).
 
-function exp_error(e::Experiment, msg)
+function exp_error(e::ExperimentData, msg)
     glb_error("In experiment $(basename(e.filename)): $msg")
 end
 
-function rule_error(e::Experiment, rule, msg)
+function rule_error(e::ExperimentData, rule, msg)
     glb_error("In experiment $(basename(e.filename)), rule $rule: $msg")
 end
 
-function setup_density_profile!(e::Experiment)
+function setup_density_profile!(e::ExperimentData)
     s = 0
     if e.density_profile_type == -1
         exp_error(e, "No profile type specified"); s = -1
@@ -81,7 +81,7 @@ Check an experiment read from AEDL, fill in defaults, load fluxes and cross
 sections, compute smearing matrices and allocate the rate buffers. Returns
 0 on success, < 0 if defaults had to be used or errors occurred.
 """
-function default_exp!(e::Experiment)
+function default_exp!(e::ExperimentData)
     status = 0
     def = 0
     status += setup_density_profile!(e)
@@ -248,16 +248,16 @@ end
 #  Rate engine
 # ---------------------------------------------------------------------------
 
-function calc_all_probs!(e::Experiment, en)
-    st = STATE
+function calc_all_probs!(e::ExperimentData, en)
+    st = state()
     fs = e.filter_state == GLB_ON ? e.filter_value : -1.0
     s1 = st.prob_func(st.P, +1, en, e.psteps, e.lengthtab, e.densitybuffer, fs, st.prob_user_data)
     s2 = st.prob_func(st.Pbar, -1, en, e.psteps, e.lengthtab, e.densitybuffer, fs, st.prob_user_data)
     (s1 != 0 || s2 != 0) && glb_error("Calculation of oscillation probabilities failed.")
 end
 
-function calc_channel(e::Experiment, c::Channel, en)
-    st = STATE
+function calc_channel(e::ExperimentData, c::Channel, en)
+    st = state()
     fin = c.final > 9 ? c.final - 10 : c.final
     ini = c.initial > 9 ? c.initial - 10 : c.initial
     flux = e.fluxes[c.flux]; xsec = e.xsecs[c.xsec]
@@ -270,7 +270,7 @@ function calc_channel(e::Experiment, c::Channel, en)
            P[ini, fin] * e.targetmass
 end
 
-function apply_smearing!(out, e::Experiment, c_idx, pre)
+function apply_smearing!(out, e::ExperimentData, c_idx, pre)
     c = e.channels[c_idx]
     s = c.energy
     sm = e.smear[s]; low = e.lowrange[s]; up = e.uprange[s]
@@ -291,7 +291,7 @@ end
 Compute the "true" event rates (as `glbSetRates` does) for the current
 oscillation parameters.
 """
-function set_rates!(e::Experiment)
+function set_rates!(e::ExperimentData)
     sd0 = e.smear_data[1]
     for j in 1:e.numofbins
         e.energy_tab[j] = sd0.bincenter[j]
@@ -337,7 +337,7 @@ end
 Compute the fitted event rates for the current oscillation parameters
 (channels flagged NOSC_ are not recomputed).
 """
-function set_new_rates!(e::Experiment)
+function set_new_rates!(e::ExperimentData)
     sd0 = e.smear_data[1]
     for j in 1:e.simbins
         calc_all_probs!(e, sd0.simbincenter[j])
@@ -370,4 +370,4 @@ function set_new_rates!(e::Experiment)
     end
 end
 
-set_profile_scaling!(e::Experiment, scale) = (e.densitybuffer .= scale .* e.densitytab)
+set_profile_scaling!(e::ExperimentData, scale) = (e.densitybuffer .= scale .* e.densitytab)
