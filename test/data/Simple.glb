@@ -1,0 +1,73 @@
+%!GLoBES
+
+$version = "3.0.0"
+
+/* A simple superbeam: the example of the AEDL chapter of the GLoBES.jl manual.
+   A 0.77 MW beam, a 22.5 kt water Cherenkov detector at 295 km. */
+
+/* Beam */
+nuflux(#plus)<
+  @flux_file = "JHFplus.dat"
+  @time      = 5        /* years */
+  @power     = 0.77     /* MW */
+  @norm      = 6.93185
+>
+
+/* Detector */
+$target_mass = 22.5     /* kt */
+
+/* Energy binning and sampling */
+$emin = 0.4
+$emax = 1.2
+$bins = 16
+$sampling_min    = 0.1
+$sampling_max    = 1.5
+$sampling_points = 56
+
+/* Baseline: average density along 295 km */
+$profiletype = 1
+$baseline    = 295.0
+
+/* Cross sections */
+cross(#CC)< @cross_file = "XCC.dat" >
+cross(#NC)< @cross_file = "XNC.dat" >
+
+/* Energy resolution: sigma(E) = 0.085 GeV */
+energy(#res)<
+  @type    = 1
+  @sigma_e = {0, 0, 0.085}
+>
+
+/* Channels */
+channel(#mu_mu)<     @channel = #plus: +: m: m: #CC: #res >
+channel(#e_e)<       @channel = #plus: +: e: e: #CC: #res >
+channel(#nc_bg)<     @channel = #plus: +: NOSC_m: NOSC_m: #NC: #res >
+
+/* An energy dependent efficiency for the appearance signal */
+%centers = bincenter()
+%eff = interpolation({0.4, 0.6, 1.2}, {0.3, 0.5, 0.5}, 1, %centers)
+
+channel(#mu_e_eff)<
+  @channel = #plus: +: m: e: #CC: #res
+  @post_smearing_efficiencies = copy(%eff)
+>
+
+/* Rules */
+rule(#appearance)<
+  @signal          = 1.0 @ #mu_e_eff
+  @background      = 0.005 @ #nc_bg : 0.5 @ #e_e : 0.001 @ #mu_mu
+  @signalerror     = 0.05 : 0.0001
+  @backgrounderror = 0.05 : 0.0001
+  @sys_on_function  = "chiSpectrumTilt"
+  @sys_off_function = "chiNoSysSpectrum"
+>
+
+rule(#disappearance)<
+  @signal          = 0.9 @ #mu_mu
+  @background      = 0.005 @ #nc_bg
+  @signalerror     = 0.025 : 0.0001
+  @backgrounderror = 0.2 : 0.0001
+  @sys_on_function  = "chiSpectrumTilt"
+  @sys_off_function = "chiNoSysSpectrum"
+  @energy_window    = 0.5 : 1.2
+>

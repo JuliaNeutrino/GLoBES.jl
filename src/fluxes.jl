@@ -3,10 +3,11 @@
 # Units: energies in GeV, lengths in km, cross sections in 1e-38 cm^2,
 # target mass in kt. Fluxes are normalized to a baseline of 1 km.
 
-const FLUX_PI = 3.1415                  # sic: the C code uses this value
-const FLUX_NORM = 6.02204 * 1e-12       # 1e-38 / atomic mass unit
-const GLB_ELECTRON_MASS = 0.511e-3
-const MUON_MASS = 0.1056
+# C GLoBES uses π = 3.1415, an outdated Avogadro number and rounded lepton
+# masses here; these are the CODATA 2018 values.
+const FLUX_NORM = 6.02214076 * 1e-12    # 1e-38 / atomic mass unit
+const GLB_ELECTRON_MASS = 0.51099895e-3
+const MUON_MASS = 0.1056583755
 const NFLUX = 500
 
 # Parent muon kinematics for the built-in neutrino factory flux
@@ -29,7 +30,7 @@ function fastflux_mu(en, baseline)
     x_lab = 2 * en / MUON_MASS
     x = x_lab / (rg * (1 - beta))
     xmax = rg * (1 - beta)
-    x_lab < xmax ? rg * (1 - beta) / baseline / baseline / MUON_MASS * x * x / FLUX_PI * (3 - 2x) : 0.0
+    x_lab <= xmax * (1 + 1e-12) ? rg * (1 - beta) / baseline / baseline / MUON_MASS * x * x / π * (3 - 2x) : 0.0
 end
 
 function fastflux_e(en, baseline)
@@ -38,7 +39,7 @@ function fastflux_e(en, baseline)
     x_lab = 2 * en / MUON_MASS
     x = x_lab / (rg * (1 - beta))
     xmax = rg * (1 - beta)
-    x_lab < xmax ? rg * (1 - beta) / baseline / baseline / MUON_MASS * 6 * x * x / FLUX_PI * (1 - x) : 0.0
+    x_lab <= xmax * (1 + 1e-12) ? rg * (1 - beta) / baseline / baseline / MUON_MASS * 6 * x * x / π * (1 - x) : 0.0
 end
 
 function nufact_flux(data::Flux, en, polarity, l, anti)
@@ -53,13 +54,13 @@ end
 function bb_spectrum(gamma, end_point, enu)
     baseline = 1000.0
     ye = GLB_ELECTRON_MASS / (end_point + GLB_ELECTRON_MASS)
-    # sic: log10 as in the original implementation
-    gye = (1 / 60) * (sqrt(1 - ye^2) * (2 - 9ye^2 - 8ye^4) + 15ye^4 * log10(ye / (1 - sqrt(1 - ye^2))))
+    # Phase space integral of beta decay (C GLoBES has log10 instead of log)
+    gye = (1 / 60) * (sqrt(1 - ye^2) * (2 - 9ye^2 - 8ye^4) + 15ye^4 * log(ye / (1 - sqrt(1 - ye^2))))
     part = enu / (2 * gamma * (end_point + GLB_ELECTRON_MASS))
     part >= 1 && return 0.0
     root = (1 - part) * (1 - part) - ye * ye
     root <= 0 && return 0.0
-    return (1 / FLUX_PI / gye / baseline^2) * (gamma * gamma / enu) * part^3 * (1 - part) * sqrt(root)
+    return (1 / π / gye / baseline^2) * (gamma * gamma / enu) * part^3 * (1 - part) * sqrt(root)
 end
 
 function bb_flux(data::Flux, en, polarity, l, anti)
@@ -70,10 +71,12 @@ end
 
 function builtin_flux_setup!(data::Flux, flx, pl)
     de = 0.0
+    # The table covers the spectrum up to its endpoint (C GLoBES cuts it at
+    # 500/501 of the endpoint and then reads it with the wrong step size)
     if data.builtin == 1 || data.builtin == 2
-        de = data.parent_energy / 501.0
+        de = data.parent_energy * (1 + sqrt(1 - (MUON_MASS / data.parent_energy)^2)) / 2 / NFLUX
     elseif data.builtin == 3 || data.builtin == 4
-        de = 2 * data.gamma * (data.end_point + GLB_ELECTRON_MASS) / 501.0
+        de = 2 * data.gamma * (data.end_point + GLB_ELECTRON_MASS) / NFLUX
     end
     glb_set_max_energy(data.parent_energy)
     st = zeros(501, 7)
@@ -151,7 +154,9 @@ given baseline, including running time, power and normalization.
 function glb_flux_calc(en, baseline, l, anti, data::Flux)
     st = data.storage
     part = flux_column(l, anti)
-    incre = (st[NFLUX+1, 1] - st[1, 1]) / 501.0   # sic: 501, as in the C code
+    # The table has NFLUX + 1 equidistant energies (C GLoBES divides by
+    # NFLUX + 1, which evaluates the flux at 1.002 times the energy)
+    incre = (st[NFLUX+1, 1] - st[1, 1]) / NFLUX
     t = (en - st[1, 1]) / incre
     isfinite(t) || return 0.0
     lowerind = floor(Int, t)

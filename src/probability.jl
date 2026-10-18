@@ -2,9 +2,11 @@
 # density. Port of glb_probability.c, including the fast 3x3 Hermitian
 # eigensolvers of J. Kopp, physics/0610206.
 
-const GLB_V_FACTOR   = 7.5e-14   # Conversion factor for matter potentials
-const GLB_Ne_MANTLE  = 0.5       # Effective electron number for MSW potentials
-const GLB_Ne_CORE    = 0.468
+# Matter potential V = sqrt(2) G_F N_e: GLB_V_FACTOR = sqrt(2) G_F N_A (ħc)^3 in
+# eV per g/cm^3 (CODATA 2018; C GLoBES uses 7.5e-14), times the electron
+# fraction Y_e = 0.5
+const GLB_V_FACTOR   = sqrt(2) * 1.1663787e-23 * 6.02214076e23 * (1.973269804e-5)^3
+const GLB_Ne_MANTLE  = 0.5
 const V_THRESHOLD    = 0.001 * GLB_V_FACTOR * GLB_Ne_MANTLE
 const M_SQRT3        = 1.73205080756887729352744634151
 
@@ -257,12 +259,9 @@ end
 function set_oscillation_parameters!(eng::StandardEngine, osc::AbstractVector{<:Real})
     th12, th13, th23, delta = osc[1], osc[2], osc[3], osc[4]
     eng.th12 = th12; eng.th13 = th13; eng.th23 = th23; eng.delta = delta
-    # The C code uses the integer abs() here, so the offset is trunc(|dm31|),
-    # which is 0 for any realistic dm31. Kept identical for bitwise agreement.
-    off = trunc(abs(osc[6]))
-    eng.mq[1] = off
-    eng.mq[2] = off + osc[5]
-    eng.mq[3] = off + osc[6]
+    eng.mq[1] = 0.0
+    eng.mq[2] = osc[5]
+    eng.mq[3] = osc[6]
 
     U = eng.U
     s12, c12 = sincos(th12); s13, c13 = sincos(th13); s23, c23 = sincos(th23)

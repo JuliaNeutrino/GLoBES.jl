@@ -1,7 +1,8 @@
 # Tests
 
 `runtests.jl` compares GLoBES.jl against numbers produced by the C library
-(GLoBES 3.0.11) for the experiments in `data/`: event rates, oscillation
+(GLoBES 3.0.11, with the bug fixes of `reference/c-fixes.patch`) for the
+experiments in `data/`: event rates, oscillation
 probabilities, χ² with and without systematics, all built-in χ² functions,
 the `glbChi*` projections, a user-defined χ² function (Double Chooz, from
 `example5.c`) and AEDL variables.
@@ -14,8 +15,10 @@ Run with
 
 ## Regenerating `reference_values.jl`
 
-Needs a C GLoBES installation (`globes-config` on the `PATH`, or pass the
-include and library paths by hand):
+Needs a C GLoBES 3.0.11 installation with `reference/c-fixes.patch` applied
+(`patch -p1 < c-fixes.patch` in the source directory, then build and install
+as usual; `globes-config` on the `PATH`, or pass the include and library paths
+by hand):
 
     cd test/reference
     gcc make_reference.c $(globes-config --include) $(globes-config --libs) -lm -o make_reference
@@ -27,7 +30,23 @@ The setups in `make_reference.c` and `runtests.jl` must be kept in sync.
 ## Where GLoBES.jl deliberately differs from C
 
 The C numbers are a cross-check, not the specification: where C GLoBES is
-wrong, GLoBES.jl fixes it and the tests check the fix instead.
+wrong, GLoBES.jl fixes it and the tests check the fix instead. Chapter
+"Differences from C GLoBES" of the manual (`docs/manual`) explains each one.
+
+Bugs with a small fix are patched in the C reference too
+(`reference/c-fixes.patch`), so the comparison stays exact:
+
+* **Physical constants.** ħc (C: 1.9747235e-10 eV km), the matter potential
+  factor √2 G_F N_A (C: 7.5e-14 eV per g/cm³), π (C: 3.1415 in the fluxes),
+  Avogadro's number and the muon and electron masses are CODATA 2018 values.
+* **Flux tables.** C reads the 501-point flux tables with a step of
+  range/501 instead of range/500, i.e. at 1.002 times the energy, and
+  tabulates the built-in fluxes only up to 500/501 of their endpoint. The
+  beta beam phase space factor uses log10 instead of log.
+* **Background tilt prior.** `chiSpectrumTilt` and `chiTotalRatesTilt` put the
+  prior of the background tilt on x[4]/(emax-emin) instead of x[4].
+
+The others are not patched in C:
 
 * **Empty bins.** C's Poisson χ² returns 1e100 whenever a fit rate is ≤ 0,
   even when the bin has no true events either. `NF_hR_lT` and `BBvar_WC` have

@@ -299,8 +299,10 @@ cd(DATADIR) do
         end
 
         @testset "minimizer restarts" begin
-            # The sgn(Δm²31) degeneracy fit of example-tour.c: Powell's method
-            # stops at χ² = 4.2979 here without restarts; C GLoBES reaches 4.28596
+            # The sgn(Δm²31) degeneracy fit of example-tour.c, a long curved
+            # valley where a single Powell run can stop early. C GLoBES (with
+            # test/reference/c-fixes.patch) reaches 4.555672592; the restarted
+            # minimizer must get there too, within its tolerance TOLOSC.
             load_setup(["NFstandard.glb"], [])
             th12, sdm, ldm = asin(sqrt(0.8)) / 2, 7e-5, 2e-3
             truth = define_params(th12, asin(sqrt(0.001)) / 2, π / 4, π / 2, sdm, ldm, 1.0)
@@ -309,7 +311,7 @@ cd(DATADIR) do
             start = define_params(th12, asin(sqrt(0.001)) / 2, π / 4, π / 2, sdm, -ldm, 1.0)
             glbSetCentralValues(start)
             glbSetInputErrors(define_params(0.1 * th12, 0, 0, 0, 0.1 * sdm, ldm / 3, 0.05))
-            @test glbChiAll(start, nothing, GLB_ALL) < 4.28595
+            @test glbChiAll(start, nothing, GLB_ALL) <= 4.555672592 * (1 + 1e-5)
         end
 
         for (name, files, vars) in SETUPS

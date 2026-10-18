@@ -1,0 +1,107 @@
+--- a/globes/globes.h
++++ b/globes/globes.h
+@@ -73,7 +73,7 @@
+ 
+ /* Unit conversion */
+ 
+-#define GLB_EV_TO_KM_FACTOR  1.9747235e-10
++#define GLB_EV_TO_KM_FACTOR  1.973269804e-10
+ #define GLB_KM_TO_EV(x)      ((x) / GLB_EV_TO_KM_FACTOR)
+ #define GLB_EV_TO_KM(x)      ((x) * GLB_EV_TO_KM_FACTOR)
+ 
+--- a/source/glb_probability.h
++++ b/source/glb_probability.h
+@@ -32,7 +32,7 @@
+ 
+ /* Constants */
+ //#define GLB_V_FACTOR        7.56e-14   /* Conversion factor for matter potentials */
+-#define GLB_V_FACTOR        7.5e-14   /* Conversion factor for matter potentials */
++#define GLB_V_FACTOR        7.632466217868407e-14   /* Conversion factor for matter potentials */
+ //#define GLB_Ne_MANTLE       0.497      /* Effective electron numbers for calculation */
+ #define GLB_Ne_MANTLE       0.5        /* Effective electron numbers for calculation */
+ #define GLB_Ne_CORE         0.468      /*   of MSW potentials                        */
+--- a/source/glb_fluxes.c
++++ b/source/glb_fluxes.c
+@@ -41,11 +41,11 @@
+ #include "glb_error.h"
+ #include "glb_multiex.h"
+ 
+-#define PI 3.1415
+-#define NORM 6.02204*1E-12 //10^-38/u (atomic mass unit)
+-#define GLB_ELECTRON_MASS 0.511E-3 
++#define PI M_PI
++#define NORM 6.02214076*1E-12 //10^-38/u (atomic mass unit)
++#define GLB_ELECTRON_MASS 0.51099895E-3 
+ 
+-static double mmu = 0.1056;           // muon mass in GeV
++static double mmu = 0.1056583755;           // muon mass in GeV
+ static double beam_pol = 0;           // beam polaristaion
+ static double beam_en = 20;           // beam energy in GeV
+ static double beta,rgamma;             // relativistic quantities
+@@ -159,7 +159,7 @@
+   x = x_lab/(rgamma*(1-beta));
+   xmax = rgamma*(1-beta);
+ 
+-  if (x_lab < xmax)
++  if (x_lab <= xmax*(1+1e-12))
+     return rgamma*(1 - beta) /baseline/baseline/mmu * x*x/PI * (3-2*x);
+   else
+     return 0.0;
+@@ -174,7 +174,7 @@
+   x = x_lab/(rgamma*(1-beta));
+   xmax = rgamma*(1-beta);
+ 
+-  if (x_lab < xmax)
++  if (x_lab <= xmax*(1+1e-12))
+     return rgamma*(1 - beta) /baseline/baseline/mmu *  6*x*x/PI * (1-x);
+   else
+     return 0.0;
+@@ -222,7 +222,7 @@
+   double gye,ye;
+   double baseline=1000.;
+   ye=GLB_ELECTRON_MASS/(end_point+GLB_ELECTRON_MASS);
+-  gye=(1./60)*(sqrt(1-pow(ye,2))*(2-9*pow(ye,2)-8*pow(ye,4))+15*pow(ye,4)*log10(ye/(1-sqrt(1-pow(ye,2)))));
++  gye=(1./60)*(sqrt(1-pow(ye,2))*(2-9*pow(ye,2)-8*pow(ye,4))+15*pow(ye,4)*log(ye/(1-sqrt(1-pow(ye,2)))));
+   part=enu/(2*gamma*(end_point+GLB_ELECTRON_MASS));
+   if(part>=1) return 0.0;
+   /*  sign is now correct */
+@@ -255,8 +255,8 @@
+   double smb,pb,de,emax;
+   int i;
+   
+-  if(data->builtin==1||data->builtin==2) de=data->parent_energy/501.0;
+-  if(data->builtin==3||data->builtin==4) de=2 * data->gamma * (data->end_point + GLB_ELECTRON_MASS)/501.0;
++  if(data->builtin==1||data->builtin==2) de=data->parent_energy*(1+sqrt(1-pow(mmu/data->parent_energy,2)))/2/500.0;
++  if(data->builtin==3||data->builtin==4) de=2 * data->gamma * (data->end_point + GLB_ELECTRON_MASS)/500.0;
+   smb=stored_muons;
+   pb=power;
+   stored_muons=data->stored_muons;
+@@ -356,7 +356,7 @@
+     }
+  
+  
+- incre = (data->flux_storage[500][0]-data->flux_storage[0][0])/501.0;
++ incre = (data->flux_storage[500][0]-data->flux_storage[0][0])/500.0;
+  lowerind = floor((en-data->flux_storage[0][0])/incre);
+  higherind = lowerind + 1;
+ 
+--- a/source/glb_sys.c
++++ b/source/glb_sys.c
+@@ -823,7 +823,7 @@
+   chi2 += glb_prior(x[0], 0.0, errors[0])
+             + glb_prior(x[1], 0.0, errors[1])
+             + glb_prior(bg_norm, bg_norm_center, errors[2])
+-            + glb_prior(bg_tilt, bg_tilt_center, errors[3]);
++            + glb_prior(x[3], bg_tilt_center, errors[3]);
+ 
+   return chi2;
+ }
+@@ -940,7 +940,7 @@
+   chi2 += glb_prior(x[0], 0.0, errors[0])
+             + glb_prior(x[1], 0.0, errors[1])
+             + glb_prior(bg_norm, bg_norm_center, errors[2])
+-            + glb_prior(bg_tilt, bg_tilt_center, errors[3]);
++            + glb_prior(x[3], bg_tilt_center, errors[3]);
+ 
+   return chi2;
+ }

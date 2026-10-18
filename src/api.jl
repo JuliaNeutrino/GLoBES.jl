@@ -49,7 +49,7 @@ function glbInitExperiment(filename::AbstractString)
     exps = try
         parse_aedl_file(path)
     catch err
-        err isa AEDLError || rethrow()
+        (err isa AEDLError && STRICT[] == 0) || rethrow()
         glb_error(sprint(showerror, err))
         return -2
     end

@@ -67,6 +67,9 @@ end
 #  Built-in chi^2 functions
 # ---------------------------------------------------------------------------
 
+# The prior on the background tilt is on the nuisance parameter x[4], like the
+# one on the signal tilt. C GLoBES puts it on x[4]/(emax - emin), which makes
+# the background tilt error effectively (emax - emin) times larger than given.
 function glbChiSpectrumTilt(exp, rule, n_params, x, errors, user_data)
     e = state().experiments[exp]; r = e.rules[rule]
     true_rates = e.rates0[rule]; sig = e.rates1[rule]; bg = e.rates1BG[rule]
@@ -85,7 +88,7 @@ function glbChiSpectrumTilt(exp, rule, n_params, x, errors, user_data)
         chi2 += glb_likelihood(true_rates[i], fit_rate)
     end
     chi2 += glb_prior(x[1], 0.0, errors[1]) + glb_prior(x[2], 0.0, errors[2]) +
-            glb_prior(bg_norm, bg_norm_center, errors[3]) + glb_prior(bg_tilt, bg_tilt_center, errors[4])
+            glb_prior(bg_norm, bg_norm_center, errors[3]) + glb_prior(x[4], bg_tilt_center, errors[4])
     return chi2
 end
 
@@ -131,7 +134,7 @@ function glbChiTotalRatesTilt(exp, rule, n_params, x, errors, user_data)
     end
     chi2 = glb_likelihood(total_true, total_fit)
     chi2 += glb_prior(x[1], 0.0, errors[1]) + glb_prior(x[2], 0.0, errors[2]) +
-            glb_prior(bg_norm, bg_norm_center, errors[3]) + glb_prior(bg_tilt, bg_tilt_center, errors[4])
+            glb_prior(bg_norm, bg_norm_center, errors[3]) + glb_prior(x[4], bg_tilt_center, errors[4])
     return chi2
 end
 
