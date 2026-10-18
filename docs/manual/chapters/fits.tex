@@ -1,0 +1,193 @@
+\chapter{Correlations, projections and degeneracies}\label{ch:fits}
+
+\section{Projections}
+
+The $\chi^2$ of Chapter~\ref{ch:chi2} tests one point of parameter space. To
+measure one parameter, say $\theta_{13}$, all the others must be allowed to
+take the values that fit the data best, since they are not known exactly and
+can mimic a different $\theta_{13}$. This is the \emph{projection} of the
+$\chi^2$ onto the $\theta_{13}$ axis (or \emph{profiling}, or
+\emph{marginalisation}):
+\begin{equation}
+\chi^2(\theta_{13}) = \min_{\theta_{12},\theta_{23},\dcp,\dm{21},\dm{31},\rho}
+  \Bigl[\chi^2(\theta_{12},\theta_{13},\dots,\rho) + \chi^2_\text{prior}\Bigr].
+\label{eq:projection}
+\end{equation}
+More generally, any set of parameters can be kept fixed and the others
+minimised over. The $\chi^2$ of a projection onto $k$ parameters is
+distributed as $\chi^2$ with $k$ degrees of freedom; Table~\ref{tab:cl} gives
+the values for the usual confidence levels.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+& $1\sigma$ (68.27\%) & 90\% & $2\sigma$ (95.45\%) & 99\% & $3\sigma$ (99.73\%) \\
+\midrule
+1 d.o.f. & 1.00 & 2.71 & 4.00 & 6.63 & 9.00 \\
+2 d.o.f. & 2.30 & 4.61 & 6.18 & 9.21 & 11.83 \\
+3 d.o.f. & 3.53 & 6.25 & 8.02 & 11.34 & 14.16 \\
+\bottomrule
+\end{tabular}
+\caption{$\Delta\chi^2$ for confidence levels and 1--3 parameters (degrees of
+freedom).}
+\label{tab:cl}
+\end{table}
+
+\section{External information: priors}\label{sec:priors}
+
+Parameters that an experiment does not measure well (like the solar
+parameters for a long-baseline experiment) or the matter density are
+constrained by external information, as Gaussian priors:
+\begin{equation}
+\chi^2_\text{prior} = \sum_{k\ \text{free}}\frac{(x_k-\hat x_k)^2}{\sigma_k^2}
+  + \sum_{e\ \text{free}}\frac{(\rho_e-\hat\rho_e)^2}{\sigma_\rho^2},
+\label{eq:prior}
+\end{equation}
+summed over the fitted parameters. The centres $\hat x_k$ are the simulated
+(true) values unless given otherwise; parameters without $\sigma_k$ have no
+prior. Any other prior is added as a function of the parameters.
+
+\section{Fitting}
+
+\begin{apifun}{marginalize(start::OscParams; free, fixed, priors=(;), centers=simulated\_params(),\\
+\phantom{marginalize(}prior=nothing, experiment=:all, setup=current\_setup()) -> FitResult}
+Minimise $\chi^2+\chi^2_\text{prior}$ over the parameters listed in
+\code{free} (or over all except those in \code{fixed}; by default over all),
+starting at \code{start}, with the fixed parameters at their values in
+\code{start}. Parameter names are those of Table~\ref{tab:params} and
+\code{:ρ} for the matter densities of all experiments.
+\code{priors} are the $\sigma_k$ as a named tuple, \code{centers} the
+$\hat x_k$, and \code{prior} a function \code{OscParams -> Float64} added to
+$\chi^2$. The result has the fields \code{chi2}, \code{params} (the parameters
+at the minimum), \code{free} and \code{iterations} (the number of $\chi^2$
+evaluations).
+\end{apifun}
+
+\begin{julia}
+test = with_param(truth, :sin²2θ13, 0.08)
+r = marginalize(test; fixed=(:θ13,),
+                priors=(θ12=0.03truth.θ12, Δm21=0.03truth.Δm21, ρ=0.05))
+r.chi2, r.params.δ, r.params.ρ
+
+# only δ and the density free, a non-Gaussian prior on θ23
+marginalize(test; free=(:δ, :ρ), priors=(ρ=0.05,),
+            prior = p -> p.sin²θ23 < 0.5 ? 0.0 : 4.0)
+\end{julia}
+
+\begin{note}
+The minimiser finds the minimum nearest to \code{start} (a local minimum).
+Start fits at the true parameters, or, to find degeneracies, at the points
+where they are expected (Section~\ref{sec:degeneracies}).
+\end{note}
+
+\section{Scans}
+
+\begin{apifun}{chi2\_scan(base, x => xs; kwargs...) -> Vector\\
+chi2\_scan(base, x => xs, y => ys; kwargs...) -> Matrix}
+$\chi^2$ on a grid of one or two parameters, with all others as in
+\code{base}. The parameter names include the derived ones of
+Table~\ref{tab:params}, such as \code{:sin²2θ13}. Without keyword arguments,
+each point is \code{chi2}; with any of the keywords of \code{marginalize},
+each point is minimised over the other parameters, the scanned ones fixed.
+The matrix has one row per value of \code{x}.
+\end{apifun}
+
+\noindent Figure~\ref{fig:delta} shows the projection onto $\dcp$ for NOvA,
+Figure~\ref{fig:contours} a two-parameter scan for T2K and NOvA together:
+\begin{julia}
+δs = range(0, 2π, 73)
+sys = chi2_scan(truth, :δ => δs)                                   # systematics only
+fit = chi2_scan(truth, :δ => δs; free=(:θ23, :Δm31, :ρ), priors=(ρ=0.05,))
+grid = chi2_scan(truth, :sin²2θ13 => range(0.06, 0.115, 56), :δ => δs)
+\end{julia}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[wide,height=0.4\linewidth,xlabel={$\dcp/\pi$},ylabel={$\Delta\chi^2$},xmin=0,xmax=2,ymin=0,
+  legend pos=north west,legend columns=1]
+\addplot table[x=delta,y=sys]{figures/data/nova_delta.dat};
+\addplot table[x=delta,y=fit]{figures/data/nova_delta.dat};
+\addplot table[x=delta,y=fit_io]{figures/data/nova_delta.dat};
+\addplot[gray,thin,dashed,domain=0:2] {1}; \addplot[gray,thin,dashed,domain=0:2] {4};
+\addplot[gray,thin,dashed,domain=0:2] {9};
+\legend{systematics only,fit of $\theta_{23}$\,$\dm{31}$\,$\rho$ (normal),fit started at inverted ordering}
+\end{axis}
+\end{tikzpicture}
+\caption{$\Delta\chi^2$ as a function of the tested $\dcp$ for \file{NOvA.glb},
+true $\dcp=3\pi/2$ and normal ordering: with all other parameters fixed at the
+true values, minimised over $\theta_{23}$, $\dm{31}$ and $\rho$ (5\% prior),
+and the same fit started at $\dm{31}\to-\dm{31}+\dm{21}$, which finds the
+best fit with inverted ordering (the sign degeneracy). Dashed lines: $1$, $2$
+and $3\sigma$ for one parameter.}
+\label{fig:delta}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[wide,height=0.45\linewidth,xlabel={$\sst{13}$},ylabel={$\dcp/\pi$},xmin=0.06,xmax=0.115,
+  ymin=0,ymax=2,legend pos=north east,
+  xticklabel style={/pgf/number format/fixed,/pgf/number format/precision=3},scaled x ticks=false]
+\addplot[blue!70!black,thick] table[x=x,y=y]{figures/data/t2k_nova_1s.dat};
+\addplot[red!70!black,thick] table[x=x,y=y]{figures/data/t2k_nova_2s.dat};
+\addplot[green!50!black,thick] table[x=x,y=y]{figures/data/t2k_nova_3s.dat};
+\addplot[only marks,mark=*,mark size=1.5pt,black] coordinates {(0.086064,1.5)};
+\legend{$1\sigma$,$2\sigma$,$3\sigma$}
+\end{axis}
+\end{tikzpicture}
+\caption{Allowed regions (2 degrees of freedom) in the $\sst{13}$--$\dcp$
+plane for T2K and NOvA together, systematics only (\code{chi2\_scan} with two
+parameters on a $56\times73$ grid). The dot marks the true values.}
+\label{fig:contours}
+\end{figure}
+
+\section{The minimiser}\label{sec:minimizer}
+
+GLoBES minimises with Powell's conjugate direction method and Brent's line
+minimisation~\cite{NR}, which needs no derivatives. Two strategies are
+available, chosen with \code{minimizer!}:
+\begin{description}
+\item[\code{:nested}] (default) Powell's method over the free oscillation
+  parameters. At every step, the systematics of each rule are minimised
+  separately (Eq.~\eqref{eq:pull}), each with its own Powell minimisation.
+\item[\code{:hybrid}] One Powell minimisation over the free oscillation
+  parameters and all nuisance parameters together, which can be faster with
+  many rules.
+\end{description}
+The tolerances are $10^{-5}$ (relative) for oscillation parameters and
+$10^{-8}$ for systematics. Since Powell's method can stop early in narrow
+curved valleys, the minimisation over oscillation parameters is restarted with
+fresh directions until it no longer improves (at most 10 times).
+
+\begin{cdiff}
+C GLoBES writes Powell's test for replacing a direction with a macro
+\code{SQR(a)} that stores its argument in a static variable. Used twice in one
+expression this is undefined behaviour, and GCC computes a different formula
+than intended. C GLoBES also does not restart. Both can make fits stop at
+points that are not minima (Section~\ref{sec:cdiff-powell}).
+\end{cdiff}
+
+\section{Degeneracies}\label{sec:degeneracies}
+
+The appearance probability depends on $\theta_{13}$, $\dcp$, $\theta_{23}$ and
+the sign of $\dm{31}$ in similar ways, so that different parameter sets can
+give nearly the same event rates~\cite{Barger:2001yr}:
+\begin{itemize}
+\item the \emph{intrinsic} ($\theta_{13}$, $\dcp$) degeneracy;
+\item the \emph{sign} degeneracy between normal and inverted ordering,
+  ($\dm{31}\to-\dm{31}+\dm{21}$);
+\item the \emph{octant} degeneracy, $\theta_{23}\to\pi/2-\theta_{23}$.
+\end{itemize}
+Each gives a local minimum of $\chi^2$. Since the minimiser only finds the
+nearest minimum, a degenerate solution is found by starting the fit near it,
+as in Figure~\ref{fig:delta}:
+\begin{julia}
+mirror = OscParams(truth; Δm31=-truth.Δm31 + truth.Δm21, θ23=π/2 - truth.θ23)
+deg = marginalize(mirror; priors=(θ12=0.03truth.θ12, Δm21=0.03truth.Δm21, ρ=0.05))
+deg.chi2, deg.params
+\end{julia}
+The projection including degeneracies is the smallest $\chi^2$ of all local
+minima. A coarse scan of $\chi^2$ with systematics only (\code{chi2\_scan}) is
+a good way to find where to start the fits.

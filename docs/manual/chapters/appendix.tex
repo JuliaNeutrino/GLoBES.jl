@@ -1,0 +1,71 @@
+\chapter{Experiment files}\label{app:files}
+
+The AEDL files of the C GLoBES distribution are included in
+\file{test/data}, together with their flux, cross section and migration matrix
+files. They describe the experiments as they were planned when the files were
+written and should be checked against current designs before use.
+
+\begin{center}\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+File & Experiment \\
+\midrule
+\file{NOvA.glb} & NOvA: $\numu$ beam from NuMI, 25~kt detector at 812~km, $\nue$
+  appearance and $\numu$ disappearance in neutrino and antineutrino mode \\
+\file{NOvA\_pre\_post\_smearing.glb} & the same, with efficiencies as pre- and
+  post-smearing lists \\
+\file{T2K.glb} & T2K: J-PARC beam to Super-Kamiokande (22.5~kt) at 295~km \\
+\file{T2HK.glb} & T2HK: upgraded beam to a 500~kt water Cherenkov detector at 295~km \\
+\file{NFstandard.glb} & neutrino factory: 50~GeV muons, 50~kt magnetised iron
+  detector at 3000~km \\
+\file{NFvar.glb} & the same with the AEDL variables \code{BASELINE} and \code{emax} \\
+\file{NF\_hR\_lT.glb} & neutrino factory with high energy resolution and low
+  threshold (variables \code{BASELINE}, \code{emax}) \\
+\file{BB\_350.glb} & beta beam with $\gamma=350$, 500~kt water Cherenkov
+  detector at 730~km, with migration matrices from a detector simulation \\
+\file{BBvar\_WC.glb} & beta beam with variable $\gamma$ (\code{gammafactor},
+  \code{baselinefactor}, \code{EXP\_FACTOR}) \\
+\file{Reactor1.glb}, \file{Reactor2.glb} & reactor experiments with 20 and
+  100~t detectors at 1.7~km \\
+\file{D-Chooz\_near.glb}, \file{D-Chooz\_far.glb} & Double Chooz near (0.1~km)
+  and far (1.05~km) detectors, for a near--far analysis with a user-defined
+  $\chi^2$ (\file{examples/example5.jl}) \\
+\file{Simple.glb} & the example of Chapter~\ref{ch:aedl-intro} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\noindent Cross sections: \file{XCC.dat} (charged current), \file{XNC.dat}
+(neutral current), \file{XQE.dat} (quasi-elastic), \file{XCCreactor.dat}
+(inverse beta decay). Fluxes: \file{NOvAplus.dat}, \file{NOvAminus.dat},
+\file{JHFplus.dat}, \file{JHFminus.dat}, \file{Reactor.dat},
+\file{BB350flux.dat}.
+
+\chapter{Examples}\label{app:examples}
+
+The directory \file{examples} contains
+\begin{description}[style=nextline,leftmargin=3.6cm]
+\item[\file{tour.jl}] the tour of Chapter~\ref{ch:tour}, with the high-level API;
+\item[\file{example-tour.jl}] the same with the \code{glb*} functions, a line-by-line
+  translation of \file{example-tour.c};
+\item[\file{example1.jl}] the $\sst{13}$--$\dcp$ correlation with systematics only;
+\item[\file{example2.jl}] projections onto the $\sst{13}$ axis;
+\item[\file{example3.jl}] locating the sign degeneracy and its shape;
+\item[\file{example4.jl}] the $\theta_{13}$ sensitivity with statistics,
+  systematics, correlations and degeneracies;
+\item[\file{example5.jl}] a reactor experiment with near and far detectors
+  (Double Chooz) and user-defined $\chi^2$ functions;
+\item[\file{example6.jl}] a user-defined probability engine: wave packet
+  decoherence in a reactor experiment.
+\end{description}
+\file{examples/README.md} compares their output with the C examples.
+
+\chapter{Building this manual}
+
+The manual is in \file{docs/manual}. Its figures are drawn by pgfplots from
+tables computed by GLoBES.jl. To rebuild everything:
+\begin{julia}
+cd docs/manual
+make            # runs figures/make_figures.jl and examples/tour.jl, then lualatex
+\end{julia}
+\code{make figures} recomputes only the data, \code{make pdf} only typesets.

@@ -1,0 +1,136 @@
+\chapter{Differences from C GLoBES}\label{ch:cdiffs}
+
+GLoBES.jl was developed as a port of C GLoBES~3.0.11 and is tested against it.
+Where the C library has a bug, GLoBES.jl does the right thing instead. This
+chapter lists every such difference, how it shows, and how much it changes
+results. The test suite compares GLoBES.jl with a C GLoBES built with the
+patch \file{test/reference/c-fixes.patch}, which applies the same fixes to the
+C code where that is a small change (Sections~\ref{sec:cdiff-constants},
+\ref{sec:cdiff-flux} and~\ref{sec:cdiff-tilt}). With it, both agree to
+rounding errors except where noted.
+
+\section{Physical constants}\label{sec:cdiff-constants}
+
+\begin{center}\small
+\begin{tabular}{lll}
+\toprule
+& C GLoBES & GLoBES.jl (CODATA 2018) \\
+\midrule
+$\hbar c$ & $1.974\,7235\times10^{-10}\eV\km$ & $1.973\,269\,804\times10^{-10}\eV\km$ \\
+$\sqrt2 G_F N_A$ & $7.5\times10^{-14}\eV$ per $\mathrm{g/cm^3}$ & $7.6325\times10^{-14}\eV$ per $\mathrm{g/cm^3}$ \\
+$\pi$ (in fluxes) & $3.1415$ & $\pi$ \\
+$N_A$ (flux normalisation) & $6.02204\times10^{23}$ & $6.022\,140\,76\times10^{23}$ \\
+$m_\mu$, $m_e$ & $0.1056$, $0.511\times10^{-3}\GeV$ & $0.105\,658\,3755$, $0.510\,998\,95\times10^{-3}\GeV$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The first shifts every oscillation phase by $0.07\%$ (equivalent to a change of
+$\dm{}$ by that amount), the second makes the matter potential $1.7\%$ larger,
+which is well within the usual density uncertainty but noticeable in precise
+comparisons. The others change built-in fluxes by $10^{-5}$ to $10^{-4}$.
+
+\section{Flux tables}\label{sec:cdiff-flux}
+
+A flux table has 501 equidistant energies $E_0,\dots,E_{500}$. To interpolate,
+C GLoBES computes the step as $(E_{500}-E_0)/501$ instead of $/500$, so it
+reads the table at the wrong position: every flux is evaluated at $1.002$
+times the requested energy (more precisely at $E_0+\frac{501}{500}(E-E_0)$),
+and the last $0.2\%$ of the table is never used. For the built-in fluxes, which
+are tabulated at initialisation, it also places the 501 points up to $500/501$
+of the parent energy, so that the highest-energy part of the neutrino factory
+spectrum, where the $\numu$ flux is largest, is cut off. GLoBES.jl uses the
+correct step and tabulates the built-in fluxes up to the kinematic endpoint.
+The beta beam flux uses the phase space integral $g(y_e)$ with $\log_{10}$
+instead of $\ln$, which changes its normalisation by about $0.35\%$.
+
+Together with the constants above, this changes total event numbers by
+$0.1$--$1\%$ for the superbeam, reactor and beta beam experiments of
+\file{test/data}, and by up to $3.5\%$ for the neutrino factory appearance
+channels near the end of the spectrum.
+
+\section{Background tilt prior}\label{sec:cdiff-tilt}
+
+In \code{chiSpectrumTilt} and \code{chiTotalRatesTilt}, the nuisance parameter
+of the background tilt $\zeta_4$ enters the rates as $\zeta_4/\Delta E$, like
+the signal tilt. C GLoBES applies the prior to $\zeta_4/\Delta E$, while the
+prior of the signal tilt is on $\zeta_2$:
+\[
+\text{C:}\quad \frac{\zeta_2^2}{\sigma_2^2} + \frac{(\zeta_4/\Delta E-\tau_0)^2}{\sigma_4^2},
+\qquad
+\text{GLoBES.jl:}\quad \frac{\zeta_2^2}{\sigma_2^2} + \frac{(\zeta_4-\tau_0)^2}{\sigma_4^2}.
+\]
+In C the background tilt error is therefore $\sigma_4\,\Delta E$ instead of the
+$\sigma_4$ written in the AEDL file, a factor of $0.8$ for T2K and $46$ for the
+neutrino factory. (In \code{chiSpectrumCalib} both priors are on the
+parameters.)
+
+\section{Empty bins in the Poisson \texorpdfstring{$\chi^2$}{chi2}}\label{sec:cdiff-poisson}
+
+C GLoBES returns $10^{100}$ from \code{glb\_likelihood} whenever the prediction
+is $N\le0$, even for a bin with no data, $n=0$. Experiments with empty bins
+(for example a beta beam or neutrino factory with bins above the beam energy,
+\file{NF\_hR\_lT.glb} and \file{BBvar\_WC.glb} in \file{test/data}) then have
+$\chi^2=10^{100}$ for every hypothesis, which is meaningless; and when
+systematics push a prediction through zero, $\chi^2$ jumps from a finite value
+to $10^{100}$, which disturbs the minimisers. GLoBES.jl gives empty bins
+$\chi^2_\text{P}=2|N|$ and continues the Poisson $\chi^2$ smoothly below
+$N=10^{-10}$ (Section~\ref{sec:poisson}).
+
+\section{Energy scale shift}\label{sec:cdiff-escale}
+
+C GLoBES applies an energy calibration error $b$ (in \code{chiSpectrumCalib}
+and \code{glbShiftEnergyScale}) by linear interpolation of the bin contents at
+the shifted positions $\delta_i=b(i+t_0+\frac12)+i$:
+$\mathcal S_b[s]_i=(1+b)\,[s_k+(s_{k+1}-s_k)(\delta_i-k)]$, $k=\lfloor\delta_i\rfloor$.
+This has three problems:
+\begin{enumerate}
+\item The interpolation is between bin \emph{contents}. Since $\delta_i$ moves
+  across bin boundaries at $b=0$, the result has a kink at $b=0$ in every bin:
+  $\chi^2(b)$ has a cusp at its minimum (Figure~\ref{fig:escale}), and its
+  curvature, which determines the effect of the error, is ill-defined.
+\item For $k=N_\text{bins}-1$ (shifts beyond the upper end), it uses
+  $s_k(\delta_i-k)+s_k$, which counts the last bin twice instead of assuming
+  zero events above the range.
+\item It assumes bins of equal width; with \code{\$binsize} the shift is wrong.
+\end{enumerate}
+GLoBES.jl integrates the monotone interpolation of the cumulative spectrum
+between the scaled bin edges (Section~\ref{sec:escale}), which avoids all three.
+The test suite therefore uses \code{chiSpectrumTilt} instead of
+\code{chiSpectrumCalib} in its comparisons with C, and tests the new shift
+against exact integrals of known spectra.
+
+\section{The minimiser}\label{sec:cdiff-powell}
+
+Powell's method replaces the direction of largest decrease by the new
+direction if~\cite{NR}
+\begin{equation}
+t = 2(f_0-2f_N+f_E)\,(f_0-f_N-\Delta f)^2 - \Delta f\,(f_0-f_E)^2 < 0 .
+\end{equation}
+C GLoBES writes this with the Numerical Recipes macro
+\code{SQR(a)}, defined as \code{(sqrarg=(a), sqrarg*sqrarg)} with a single
+static variable \code{sqrarg}. Two \code{SQR} in one expression are undefined
+behaviour; GCC evaluates both assignments before both products and computes
+$t=(2(f_0-2f_N+f_E)-\Delta f)(f_0-f_E)^2$. The test then accepts or rejects
+new directions for the wrong reasons. In addition, a single Powell run can stop
+early in a long curved valley, as around degenerate solutions. GLoBES.jl uses
+the formula above and restarts the minimisation from the result with fresh
+directions until a whole run no longer improves $\chi^2$ (at most ten times).
+Fits may therefore end at a lower $\chi^2$ than in C GLoBES.
+
+\section{Data file lookup}
+
+C GLoBES looks for flux and cross section files only in the current directory
+and in \code{GLB\_PATH}. GLoBES.jl also looks next to the AEDL file, so that
+\code{Experiment("/path/to/exp.glb")} works from any directory.
+
+\section{State and interface}
+
+\begin{itemize}
+\item All state belongs to a \code{Setup} instead of global variables
+  (Section~\ref{sec:setups}).
+\item The high-level API raises exceptions instead of printing errors and
+  returning codes; the \code{glb*} functions keep the C behaviour.
+\item Numbering starts at 1 (Chapter~\ref{ch:compat}).
+\item The rates of a rule outside its energy window are zero (C leaves them
+  uninitialised).
+\end{itemize}

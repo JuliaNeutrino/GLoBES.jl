@@ -1,0 +1,167 @@
+\chapter{Basic concepts}\label{ch:basics}
+
+\section{Setups, experiments and simulated data}
+
+A GLoBES.jl computation involves
+\begin{description}
+  \item[A setup] (\code{Setup}): a list of experiments, their simulated data,
+    the probability engine, the registered $\chi^2$ functions, and the
+    minimiser settings. There is always a current setup, and most programs use
+    only that one. Section~\ref{sec:setups} explains how to work with several.
+  \item[Experiments] (\code{Experiment}), each loaded from an AEDL file. An
+    experiment has one neutrino source, one baseline and matter density
+    profile, and one detector with one or more \emph{rules}: independent
+    measurements with their own signals, backgrounds and systematics.
+  \item[Oscillation parameters] (\code{OscParams}): the point in parameter
+    space at which data are simulated or a hypothesis is tested.
+\end{description}
+The steps of an analysis are always the same:
+\begin{julia}
+using GLoBES
+exp   = Experiment("T2K.glb")                       # 1. load experiments
+truth = OscParams(θ12=0.5843, θ13=0.1503, θ23=0.8326,
+                  δ=1.5π, Δm21=7.53e-5, Δm31=2.5e-3)
+simulate!(truth)                                    # 2. simulate the data
+chi2(OscParams(truth; δ=0))                         # 3. test hypotheses
+\end{julia}
+
+\section{Oscillation parameters}\label{sec:oscparams}
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{lllll}
+\toprule
+Parameter & Name & ASCII name & Unit & C index \\
+\midrule
+$\theta_{12}$ & \code{θ12} & \code{theta12} & rad & \code{GLB\_THETA\_12} \\
+$\theta_{13}$ & \code{θ13} & \code{theta13} & rad & \code{GLB\_THETA\_13} \\
+$\theta_{23}$ & \code{θ23} & \code{theta23} & rad & \code{GLB\_THETA\_23} \\
+$\dcp$        & \code{δ}   & \code{delta}   & rad & \code{GLB\_DELTA\_CP} \\
+$\dm{21}$     & \code{Δm21} & \code{dm21}   & $\mathrm{eV}^2$ & \code{GLB\_DM\_21} \\
+$\dm{31}$     & \code{Δm31} & \code{dm31}   & $\mathrm{eV}^2$ & \code{GLB\_DM\_31} \\
+matter density scaling & \code{ρ} & \code{rho} & 1 & density parameters \\
+\midrule
+$\st{12}$, $\st{13}$, $\st{23}$ & \code{sin²θ12} \dots & \code{sin2theta12} \dots & & \\
+$\sst{12}$, $\sst{13}$, $\sst{23}$ & \code{sin²2θ12} \dots & \code{sin22theta12} \dots & & \\
+\bottomrule
+\end{tabular}
+\caption{Names of the oscillation parameters. The last two rows are derived
+quantities, which can be read (\code{p.sin²2θ13}) and set with
+\code{with\_param} and in scans, but are not stored.}
+\label{tab:params}
+\end{table}
+
+The standard parameters are listed in Table~\ref{tab:params}. They follow the
+standard parametrisation of the leptonic mixing matrix,
+\begin{equation}
+U = \begin{pmatrix} 1&0&0\\ 0&c_{23}&s_{23}\\ 0&-s_{23}&c_{23}\end{pmatrix}
+    \begin{pmatrix} c_{13}&0&s_{13}e^{-i\dcp}\\ 0&1&0\\ -s_{13}e^{i\dcp}&0&c_{13}\end{pmatrix}
+    \begin{pmatrix} c_{12}&s_{12}&0\\ -s_{12}&c_{12}&0\\ 0&0&1\end{pmatrix},
+\label{eq:pmns}
+\end{equation}
+with $s_{ij}=\sin\theta_{ij}$, $c_{ij}=\cos\theta_{ij}$, and
+$\dm{ij}=m_i^2-m_j^2$. The mass ordering is normal for $\dm{31}>0$ and inverted
+for $\dm{31}<0$.
+
+\paragraph{Creating parameters.} All of $\theta_{12}$, $\theta_{13}$,
+$\theta_{23}$, $\dm{21}$ and $\dm{31}$ must be given; $\dcp$ defaults to 0 and
+$\rho$ to 1:
+\begin{julia}
+p = OscParams(θ12=asin(sqrt(0.307)), θ13=asin(sqrt(0.022)), θ23=asin(sqrt(0.546)),
+              δ=1.5π, Δm21=7.53e-5, Δm31=2.5e-3)
+q = OscParams(p; δ=0, Δm31=-2.4e-3)       # a copy with some parameters changed
+r = with_param(p, :sin²2θ13, 0.085)        # set θ13 through sin²2θ13
+p.θ23, p.sin²θ23, p.ρ                     # read parameters
+\end{julia}
+\code{OscParams} are immutable: functions never change them, and a changed copy
+is made with \code{OscParams(p; changes...)} or \code{with\_param}.
+
+\paragraph{Matter density.} \code{ρ} scales the matter density profile of the
+experiments: the densities of the AEDL file are multiplied by $\rho$ when rates
+are computed. It is one number for all experiments, or a vector with one entry
+per experiment, \code{OscParams(p; ρ=[1.0, 0.97])}. Its uncertainty is taken
+into account by fitting it with a prior (Section~\ref{sec:priors}).
+
+\paragraph{Additional parameters.} A probability engine for non-standard
+physics (Chapter~\ref{ch:nonstandard}) may have more parameters. They are given
+as a named tuple, \code{OscParams(p; extra=(ε=0.1,))}, and accessed by name like
+the standard ones.
+
+\section{Units and the integrated luminosity}\label{sec:luminosity}
+
+GLoBES.jl uses GeV for neutrino energies, km for baselines, $\mathrm{g/cm^3}$
+for matter densities, $\mathrm{eV}^2$ for mass squared differences and radians
+for angles. The number of events is proportional to the \emph{integrated
+luminosity},
+\begin{equation}
+N \propto \text{source power} \times \text{running time} \times \text{target mass},
+\end{equation}
+with units chosen in the AEDL file: typically MW of beam power (or useful
+parent decays per year for neutrino factories and beta beams), years, and kt
+(t for reactor detectors). Section~\ref{sec:aedl-flux} explains how the
+normalisation of the flux tables relates these units to event numbers. At
+runtime, they are changed with \code{source\_power!}, \code{running\_time!} and
+\code{target\_mass!} (Section~\ref{sec:exposure}).
+
+\section{Simulated data}\label{sec:simulate}
+
+\begin{apifun}{simulate!(truth::OscParams; setup=current\_setup())}
+Compute the event rates of all experiments of the setup for the parameters
+\code{truth}. They serve as the data that all $\chi^2$ values compare to.
+\end{apifun}
+
+\noindent The simulated data are the event rates expected for the true
+parameters; they are not fluctuated. This gives the $\Delta\chi^2$ of an
+\emph{average} experiment (the ``Asimov data set''): the expected sensitivity.
+Since the true parameters fit the data perfectly, $\chi^2_\text{min}=0$ and
+$\chi^2$ and $\Delta\chi^2$ are the same.
+
+\code{simulate!} must be called again after experiments are added or changed;
+\code{chi2} and \code{marginalize} throw an error if no data have been
+simulated. \code{simulated\_params()} returns the parameters of the last call.
+
+\section{Errors}
+
+The functions of the high-level API throw a \code{GLoBESError} when something is
+wrong: a file that cannot be read, an unknown rule name, a missing
+\code{simulate!}, a parameter vector of the wrong length. Errors in AEDL files are
+\code{AEDLError}s with the file name and line. The \code{glb*} functions instead
+print errors and return error codes, like the C library; their output is
+controlled with \code{glbSetVerbosityLevel}.
+
+\section{Several setups}\label{sec:setups}
+
+Each \code{Setup} is an independent simulation. Every function works on the
+current setup unless it gets a \code{setup} keyword or an experiment, which
+belongs to the setup it was loaded into:
+\begin{julia}
+near = Setup()
+far  = Setup()
+Experiment("NOvA.glb"; setup=near)
+Experiment("NOvA.glb"; setup=far, BASELINE=1500)   # BASELINE: an AEDL variable
+simulate!(truth; setup=near); simulate!(truth; setup=far)
+chi2(test; setup=near), chi2(test; setup=far)
+\end{julia}
+\code{with\_setup(f, setup)} makes \code{setup} the current setup while \code{f}
+runs, which is convenient for longer pieces of code and also applies to the
+\code{glb*} functions:
+\begin{julia}
+with_setup(far) do
+    simulate!(truth)
+    glbChiSys(glbparams, GLB_ALL, GLB_ALL)   # the glb* layer sees `far` too
+end
+\end{julia}
+\code{current\_setup()} returns the current setup.
+
+\begin{note}
+GLoBES.jl is not thread-safe: functions make their setup the current one while
+they run, so two threads computing at the same time interfere even if they use
+different setups. To compute in parallel, use several processes (for instance
+with the \code{Distributed} standard library), each with its own experiments.
+\end{note}
+
+\begin{cdiff}
+C GLoBES keeps all its state (experiments, rates, minimiser settings, the
+probability engine) in global variables, so a program can only have one
+simulation. In GLoBES.jl, this state belongs to a \code{Setup}.
+\end{cdiff}

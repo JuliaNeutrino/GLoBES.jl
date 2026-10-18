@@ -1,0 +1,139 @@
+\chapter{Getting started with AEDL}\label{ch:aedl-intro}
+
+\section{The concept}
+
+An experiment in GLoBES has one neutrino source (a point source, stationary
+in time), one baseline with its matter density profile, and one detector. The
+detector is described by its response to neutrinos of each flavour: cross
+sections, energy resolution, efficiencies and backgrounds. The building blocks
+are
+\begin{description}
+\item[fluxes] (\code{nuflux}) of the source, from a table or built in;
+\item[cross sections] (\code{cross}), from tables;
+\item[energy resolutions] (\code{energy}), a resolution function or a matrix;
+\item[channels] (\code{channel}): one flux, one initial and one final flavour,
+  one cross section and one energy resolution, with efficiencies;
+\item[rules] (\code{rule}): signal and background, each a weighted sum of
+  channels, with a $\chi^2$ function for systematics.
+\end{description}
+The $\chi^2$ of an experiment is the sum of the $\chi^2$ of its rules, and the
+$\chi^2$ of a setup the sum over its experiments (Figure~\ref{fig:concept}).
+Chapter~\ref{ch:rates} gives the formulas.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[>={Stealth[length=2mm]},font=\small,
+  ch/.style={draw,rounded corners=2pt,fill=green!8,minimum width=17mm,minimum height=7mm},
+  ru/.style={draw,rounded corners=2pt,fill=orange!12,minimum width=24mm,minimum height=8mm,align=center},
+  ex/.style={draw,rounded corners=2pt,fill=blue!8,minimum width=40mm,minimum height=8mm}]
+\node[ch] (c1) at (0,0) {channel 1};
+\node[ch] (c2) at (2.2,0) {channel 2};
+\node[ch] (c3) at (4.4,0) {channel 3};
+\node[ch] (c4) at (6.6,0) {channel 4};
+\node[ch] (c5) at (8.8,0) {channel 5};
+\node[ru] (r1) at (1.1,-1.6) {rule 1\\$s$, $b$, $\chi^2_1$};
+\node[ru] (r2) at (5.5,-1.6) {rule 2\\$s$, $b$, $\chi^2_2$};
+\node[ru] (r3) at (8.8,-1.6) {rule 3\\$s$, $b$, $\chi^2_3$};
+\node[ex] (e) at (5,-3.2) {experiment: $\chi^2=\chi^2_1+\chi^2_2+\chi^2_3$};
+\draw[->] (c1) -- (r1); \draw[->] (c2) -- (r1); \draw[->] (c3) -- (r2);
+\draw[->] (c4) -- (r2); \draw[->] (c2) -- (r2); \draw[->] (c5) -- (r3); \draw[->] (c4) -- (r3);
+\draw[->] (r1) -- (e); \draw[->] (r2) -- (e); \draw[->] (r3) -- (e);
+\end{tikzpicture}
+\caption{Channels, rules and experiments. A channel can be used in several
+rules, as signal in one and as background in another.}
+\label{fig:concept}
+\end{figure}
+
+\section{A simple example}
+
+The file \file{test/data/Simple.glb} describes a superbeam with a water
+Cherenkov detector at 295~km:
+
+\VerbatimInput[breaklines,frame=leftline,framerule=1.5pt,rulecolor=\color{orange!70!black},
+  xleftmargin=6pt,framesep=8pt,fontsize=\small,numbers=left,numbersep=4pt]{../../test/data/Simple.glb}
+
+\noindent It defines a flux from a table (lines 9--14), the detector mass, the
+energy bins and sampling points (lines 17--26), the baseline and matter
+profile (lines 29--30), two cross sections, a Gaussian energy resolution, four
+channels, and two rules. The channel \code{\#mu\_e\_eff} has an energy dependent
+efficiency computed in AEDL by interpolation (lines 47--53). Loaded with
+\begin{julia}
+simple = Experiment("Simple.glb")
+\end{julia}
+it can be used like any other experiment.
+
+\section{Syntax}\label{sec:aedl-syntax}
+
+\paragraph{File structure.} An AEDL file starts with the eight characters
+\code{\%!GLoBES}. It should declare the GLoBES version it is written for,
+\code{\$version = "3.0.0"}. Comments are as in C, \code{/* ... */} and
+\code{// ...} to the end of the line.
+
+\paragraph{Global and local variables.} Variables starting with \code{\$} are
+global properties of the experiment (\code{\$baseline = 295}). Variables
+starting with \code{@} belong to an environment
+(\code{@time = 5} inside \code{nuflux}). Numbers are converted to integers
+where integers are expected. Lists are written in braces,
+\code{\$densitytab = \{2.8, 3.5\}}.
+
+\paragraph{Environments and names.} Fluxes, cross sections, energy
+resolutions, channels and rules are environments,
+\begin{aedl}
+channel(#name)<
+   @channel = ...
+>
+\end{aedl}
+named with a \code{\#}. Names are numbered in the order of their first
+appearance within each type (starting at 1 in GLoBES.jl), and must be unique
+across all types. A name can be declared before it is defined with an empty
+environment, \code{channel(\#later)<>}. \code{rule\_names} and
+\code{channel\_names} return the names of an experiment.
+
+\paragraph{User variables and expressions.}\label{sec:aedl-variables}
+Variables without prefix are constants for use in expressions:
+\begin{aedl}
+L = 1300
+$baseline = L
+$emax = 2 * sqrt(L / 100) + 0.5^2
+\end{aedl}
+The operators are \code{+ - * / \^}, and the functions \code{sin}, \code{cos},
+\code{tan}, \code{asin}, \code{acos}, \code{atan}, \code{log}, \code{log10},
+\code{exp} and \code{sqrt}, which apply to every element of a list. Variables
+can also be defined by the program: \code{Experiment(file; L=810)}
+(Chapter~\ref{ch:runtime}). Lists are stored in variables starting with
+\code{\%}, \code{\%effs = \{0.2, 0.4, 0.6\}}.
+
+\paragraph{List functions.}
+\begin{description}[style=nextline,leftmargin=3cm]
+\item[\code{bincenter()}] the centres of the energy bins defined so far;
+\item[\code{samplingbincenter()}] the centres of the sampling points;
+\item[\code{interpolation(x, y, k, z)}] the values at \code{z} of the linear
+  ($k=1$) or natural cubic spline ($k=2$) interpolation of the points
+  $(x, y)$;
+\item[\code{copy(l)}] a copy of a list, needed when a list is used twice;
+\item[\code{reverse(l)}] the list in reverse order;
+\item[\code{echo(x)}, \code{echon(x)}, \code{line(n)}] print values (for
+  debugging AEDL files), without or with line feeds, or $n$ line feeds.
+\end{description}
+
+\paragraph{Includes and several experiments.} \code{include "file.glb"}
+inserts another file (which need not start with \code{\%!GLoBES}); includes
+can be nested ten levels deep. Several experiments are separated by
+\code{\#NEXT\#}, which resets all names, so that
+\begin{aedl}
+%!GLoBES
+include "NOvA.glb"
+#NEXT#
+include "T2K.glb"
+\end{aedl}
+defines two experiments, loaded with \code{load\_experiments}.
+
+\paragraph{Where files are found.} Included files, flux files and cross
+section files are looked up in the current directory, in the directory of the
+AEDL file that names them, and in the directories of \code{GLB\_PATH}.
+
+\begin{cdiff}
+C GLoBES looks for data files only in the current directory and in
+\code{GLB\_PATH}, not next to the AEDL file, so that loading an experiment from
+another directory fails to find its flux and cross section files.
+\end{cdiff}

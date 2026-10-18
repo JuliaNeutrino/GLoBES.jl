@@ -1,0 +1,184 @@
+\chapter{Oscillation probabilities}\label{ch:prob}
+
+\section{Three-flavour oscillations in matter}
+
+A neutrino of energy $E$ produced in flavour $\alpha$ evolves in matter of
+constant electron density $N_e$ with the Hamiltonian (in flavour basis)
+\begin{equation}
+H = \frac{1}{2E}\,U \begin{pmatrix} 0&&\\ &\dm{21}&\\ &&\dm{31}\end{pmatrix} U^\dagger
+  + \begin{pmatrix} V&&\\ &0&\\ &&0\end{pmatrix},
+\qquad V = \sqrt2\,G_F N_e ,
+\label{eq:hamiltonian}
+\end{equation}
+with $U$ from Eq.~\eqref{eq:pmns}. The matter potential $V$ comes from coherent
+forward scattering on electrons. For antineutrinos, $U\to U^*$ (that is,
+$\dcp\to-\dcp$) and $V\to-V$. The evolution through a layer of length $L$ is
+\begin{equation}
+S(L) = e^{-iHL} = Q\,\mathrm{diag}\bigl(e^{-i\lambda_1L},e^{-i\lambda_2L},e^{-i\lambda_3L}\bigr)\,Q^\dagger,
+\end{equation}
+where $\lambda_k$ and the columns of $Q$ are the eigenvalues and eigenvectors of
+$H$. GLoBES.jl diagonalises $H$ with the fast algorithms for Hermitian
+$3\times3$ matrices of Ref.~\cite{Kopp:2006wp}. A matter profile is a sequence of
+layers of constant density with lengths $L_k$ and densities $\rho_k$. The
+evolution through it is the product of the layers' evolution operators, and the
+probability is
+\begin{equation}
+P(\nu_\alpha\to\nu_\beta) = \bigl|\,[S(L_n)\cdots S(L_2)\,S(L_1)]_{\beta\alpha}\bigr|^2 .
+\label{eq:prob}
+\end{equation}
+In vacuum ($V=0$) the eigenvectors are the columns of $U$, and
+Eq.~\eqref{eq:prob} reduces to the familiar
+\begin{equation}
+P(\nu_\alpha\to\nu_\beta) = \delta_{\alpha\beta}
+  - 4\sum_{i>j}\mathrm{Re}\bigl(U_{\alpha i}^*U_{\beta i}U_{\alpha j}U_{\beta j}^*\bigr)\sin^2\frac{\dm{ij}L}{4E}
+  + 2\sum_{i>j}\mathrm{Im}\bigl(U_{\alpha i}^*U_{\beta i}U_{\alpha j}U_{\beta j}^*\bigr)\sin\frac{\dm{ij}L}{2E}.
+\end{equation}
+
+\paragraph{Units.} With $\dm{}$ in $\mathrm{eV}^2$, $L$ in km and $E$ in GeV, the
+oscillation phase is
+\begin{equation}
+\frac{\dm{}L}{4E} = \frac{\dm{}\,[\mathrm{eV}^2]\;L\,[\mathrm{km}]}{4\,\hbar c\;E\,[\mathrm{eV}]}
+  \approx 1.267\,\frac{\dm{}\,[\mathrm{eV}^2]\;L\,[\mathrm{km}]}{E\,[\mathrm{GeV}]},
+\qquad \hbar c = 1.973\,269\,804\times10^{-10}\eV\km .
+\end{equation}
+The matter potential is computed from the density as
+\begin{equation}
+V = \sqrt2\,G_F N_A\, Y_e\,\rho
+  \approx 3.82\times10^{-14}\eV\times\frac{\rho}{\mathrm{g/cm^3}},
+\qquad Y_e = \tfrac12 ,
+\label{eq:potential}
+\end{equation}
+with the Fermi constant $G_F = 1.166\,3787\times10^{-5}\GeV^{-2}$, Avogadro's
+number $N_A$ and $Y_e$ electrons per nucleon, the value for the Earth's mantle
+and crust.
+
+\begin{cdiff}
+C GLoBES uses $\hbar c = 1.974\,7235\times10^{-10}\eV\km$ and
+$\sqrt2 G_F N_A = 7.5\times10^{-14}\eV$ per $\mathrm{g/cm^3}$, which are 0.07\%
+and 1.7\% away from the physical values. GLoBES.jl uses the values above
+(Section~\ref{sec:cdiff-constants}).
+\end{cdiff}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$E$ [GeV]},ylabel={$P(\numu\to\nue)$},xmin=0.3,xmax=5,ymin=0,ymax=0.16,
+  title={\small neutrinos},legend pos=north east]
+\addplot table[x=E,y=d0]{figures/data/prob_nu.dat};
+\addplot table[x=E,y=d90]{figures/data/prob_nu.dat};
+\addplot table[x=E,y=d180]{figures/data/prob_nu.dat};
+\addplot table[x=E,y=d270]{figures/data/prob_nu.dat};
+\addplot[black,dashed] table[x=E,y=vac270]{figures/data/prob_nu.dat};
+\legend{$\dcp=0$,$\pi/2$,$\pi$,$3\pi/2$,vacuum}
+\end{axis}
+\end{tikzpicture}\hfill
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$E$ [GeV]},ylabel={$P(\bar\nu_\mu\to\bar\nu_e)$},xmin=0.3,xmax=5,ymin=0,ymax=0.16,
+  title={\small antineutrinos}]
+\addplot table[x=E,y=d0]{figures/data/prob_nubar.dat};
+\addplot table[x=E,y=d90]{figures/data/prob_nubar.dat};
+\addplot table[x=E,y=d180]{figures/data/prob_nubar.dat};
+\addplot table[x=E,y=d270]{figures/data/prob_nubar.dat};
+\addplot[black,dashed] table[x=E,y=vac270]{figures/data/prob_nubar.dat};
+\end{axis}
+\end{tikzpicture}
+\caption{Appearance probabilities at $L=1300\km$ in matter of constant density
+$\rho=2.8\gcc$ for four values of $\dcp$ and, dashed, in vacuum for
+$\dcp=3\pi/2$. The parameters are $\st{12}=0.307$, $\st{13}=0.022$,
+$\st{23}=0.546$, $\dm{21}=7.53\times10^{-5}\eV^2$, $\dm{31}=2.5\times10^{-3}\eV^2$.
+Matter enhances neutrino and suppresses antineutrino appearance for normal
+ordering. Computed with \code{probability(p, :μ, :e; E, L=1300, ρ=2.8)}.}
+\label{fig:prob}
+\end{figure}
+
+\section{Computing probabilities}
+
+\begin{apifun}{probability(params, from, to; E, L, ρ=0, antineutrino=false)\\
+probability(params, from, to, experiment; E, antineutrino=false)}
+$P(\nu_\text{from}\to\nu_\text{to})$ for the oscillation parameters
+\code{params} at energy \code{E} (GeV; a number, or a vector or range for many
+energies), over \code{L} km of constant density \code{ρ} ($\mathrm{g/cm^3}$;
+vacuum for $\rho=0$), or along the baseline and density profile of an
+experiment. Flavours are \code{:e}, \code{:μ}, \code{:τ} (also \code{:mu},
+\code{:tau}, or 1, 2, 3).
+\end{apifun}
+
+\noindent Figure~\ref{fig:prob} shows appearance probabilities computed this
+way. The $\rho$ of \code{params} is not used, since the density is given:
+\begin{julia}
+E = range(0.3, 5, 471)
+P = probability(truth, :μ, :e; E, L=1300, ρ=2.8)
+P̄ = probability(truth, :μ, :e; E, L=1300, ρ=2.8, antineutrino=true)
+probability(truth, :μ, :μ, nova; E=2.0)                     # along NOvA's profile
+\end{julia}
+
+\section{Matter density profiles}\label{sec:profiles}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[wide,height=0.38\linewidth,xlabel={distance from the source [km]},ylabel={$\rho$ [$\mathrm{g/cm^3}$]},
+  xmin=0,xmax=11000,ymin=2,ymax=12,legend pos=north east]
+\addplot[const plot,blue!70!black] table[x=x,y=rho]{figures/data/prem_3000.dat};
+\addplot[const plot,red!70!black] table[x=x,y=rho]{figures/data/prem_7500.dat};
+\addplot[const plot,green!50!black] table[x=x,y=rho]{figures/data/prem_11000.dat};
+\addplot[blue!70!black,dashed,thin] table[x=x,y=avg]{figures/data/prem_3000.dat};
+\addplot[red!70!black,dashed,thin] table[x=x,y=avg]{figures/data/prem_7500.dat};
+\addplot[green!50!black,dashed,thin] table[x=x,y=avg]{figures/data/prem_11000.dat};
+\legend{$L=3000\km$,$L=7500\km$,$L=11000\km$}
+\end{axis}
+\end{tikzpicture}
+\caption{The matter density along baselines of 3000, 7500 and 11000 km
+(\code{prem\_profile(L, 400)}), and the average densities (dashed,
+\code{average\_profile(L)}). The longest baseline crosses the Earth's outer core.}
+\label{fig:prem}
+\end{figure}
+
+Every experiment has a matter density profile along its baseline, chosen in
+its AEDL file (Section~\ref{sec:aedl-baseline}). The Earth's density is taken
+from the Stacey model~\cite{Stacey}, a tabulation of the density
+$\rho(r)$ in 500 shells, close to PREM~\cite{PREM}. A neutrino travelling a
+baseline $L$ from a point on the surface reaches the distance
+\begin{equation}
+r(x) = \sqrt{x^2 + R_\oplus^2 - Lx}
+\end{equation}
+from the centre of the Earth after a distance $x$, with $R_\oplus=6371\km$. A profile of $n$
+layers has the lengths $L/n$ and the densities $\rho(r(x_k))$ at the layer
+centres $x_k$; the average-density profile is a single layer with the mean of
+1000 such layers. Figure~\ref{fig:prem} shows profiles for three baselines.
+\begin{apifun}{prem\_profile(L, layers) -> (lengths, densities)\\
+average\_profile(L) -> (lengths, densities)}
+The Earth's density along a baseline of \code{L} km, in \code{layers} layers of
+equal length or as a single layer of average density.
+\end{apifun}
+\begin{apifun}{density\_profile(e) -> (lengths, densities)\\
+density\_profile!(e, lengths, densities)}
+The profile of an experiment, and replacing it by any profile. The baseline
+becomes the sum of the lengths.
+\end{apifun}
+\begin{apifun}{baseline(e)\qquad baseline!(e, L)}
+The baseline of an experiment. Changing it recomputes the profile in the way
+the AEDL file defines it: average density, $n$ Stacey layers, or the user
+layers scaled to the new length.
+\end{apifun}
+
+\noindent For most experiments, one layer with the average density and a 5\%
+uncertainty on it (Section~\ref{sec:priors}) is accurate enough~\cite{Huber:2002mx}.
+
+\section{Low-pass filter\texorpdfstring{$^\ast$}{*}}\label{sec:filter}
+
+For high frequencies, fast oscillations average out within an energy bin but
+cause aliasing when sampled at a finite number of energies. The low-pass filter
+damps the oscillation terms of the probability with the phase
+$\phi_{ij}=(\lambda_i-\lambda_j)L$ by
+\begin{equation}
+P(\nu_\alpha\to\nu_\beta) = \sum_i |Q_{\alpha i}|^2|Q_{\beta i}|^2
+ + 2\sum_{i<j}\mathrm{Re}\Bigl(Q_{\alpha j}Q_{\beta j}^*Q_{\alpha i}^*Q_{\beta i}\,e^{-i\phi_{ij}}\Bigr)
+   \exp\!\Bigl(-\frac{\phi_{ij}^2\,\sigma_E^2}{2E^2}\Bigr),
+\end{equation}
+which is the probability averaged over a Gaussian energy distribution of width
+$\sigma_E$ in the approximation $\phi\propto1/E$. It is switched on with
+\code{\$filter\_state = 1} and \code{\$filter\_value = }$\sigma_E$ in GeV in AEDL
+(Section~\ref{sec:aedl-filter}) and only works for a single-layer profile. The
+filter also reduces the width of the energy resolution function so that the
+total smearing stays the same (Section~\ref{sec:smearing}).

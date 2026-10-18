@@ -1,0 +1,187 @@
+% GLoBES.jl user manual. Build with `make` in this directory (LuaLaTeX).
+% The figure data are computed by figures/make_figures.jl.
+\documentclass[11pt,a4paper,openany]{book}
+
+\usepackage[margin=2.6cm]{geometry}
+\usepackage{amsmath}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmathfont{Latin Modern Math}
+\setmonofont{DejaVu Sans Mono}[Scale=0.84]
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{fvextra}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,citecolor=green!40!black]{hyperref}
+
+\graphicspath{{figures/}}
+\setlist{itemsep=2pt,topsep=4pt}
+\captionsetup{font=small,labelfont=bf}
+
+% Code
+\definecolor{codebg}{gray}{0.96}
+\definecolor{coderule}{RGB}{90,110,170}
+\DefineVerbatimEnvironment{julia}{Verbatim}{breaklines,frame=leftline,framerule=1.5pt,
+  rulecolor=\color{coderule},xleftmargin=6pt,framesep=8pt,fontsize=\small}
+\DefineVerbatimEnvironment{aedl}{Verbatim}{breaklines,frame=leftline,framerule=1.5pt,
+  rulecolor=\color{orange!70!black},xleftmargin=6pt,framesep=8pt,fontsize=\small}
+\DefineVerbatimEnvironment{output}{Verbatim}{breaklines,frame=single,rulecolor=\color{gray!60},
+  xleftmargin=6pt,framesep=6pt,fontsize=\footnotesize}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\texttt{#1}}
+
+% Boxes for notes and for differences from C GLoBES
+\newtcolorbox{note}{colback=blue!3,colframe=blue!40!black,boxrule=0.5pt,arc=1pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\small,title=Note}
+\newtcolorbox{cdiff}{colback=orange!4,colframe=orange!60!black,boxrule=0.5pt,arc=1pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\small,title=Difference from C GLoBES}
+
+% Function reference entries
+\newenvironment{apifun}[1]{\par\medskip\noindent\colorbox{codebg}{\parbox{\dimexpr\linewidth-2\fboxsep}{\ttfamily\small #1}}\par\nopagebreak\smallskip\begin{list}{}{\leftmargin=1.5em\topsep=0pt}\item[]}{\end{list}}
+
+% Physics
+\newcommand{\dm}[1]{\Delta m^2_{#1}}
+\newcommand{\st}[1]{\sin^2\theta_{#1}}
+\newcommand{\sst}[1]{\sin^2 2\theta_{#1}}
+\newcommand{\dcp}{\delta_\mathrm{CP}}
+\newcommand{\nue}{\nu_e}
+\newcommand{\numu}{\nu_\mu}
+\newcommand{\GeV}{\,\mathrm{GeV}}
+\newcommand{\km}{\,\mathrm{km}}
+\newcommand{\eV}{\,\mathrm{eV}}
+\newcommand{\gcc}{\,\mathrm{g/cm^3}}
+
+% Plots
+\pgfplotsset{
+  manual/.style={width=0.48\linewidth,height=0.38\linewidth,
+    tick label style={font=\scriptsize},label style={font=\small},
+    legend style={font=\scriptsize,draw=none,fill=white,fill opacity=0.85,text opacity=1},
+    every axis plot/.append style={line width=0.9pt},grid=major,grid style={gray!20}},
+  wide/.style={manual,width=0.9\linewidth,height=0.45\linewidth},
+  cycle list={{blue!70!black},{red!70!black},{green!50!black},{orange!90!black},{violet},{black,dashed}}
+}
+
+\title{\Huge\bfseries GLoBES.jl\\[6pt]
+  \LARGE General Long Baseline Experiment Simulator in Julia\\[18pt]
+  \Large User manual}
+\author{Based on GLoBES 3.0 by P.~Huber, J.~Kopp, M.~Lindner, M.~Rolinec and W.~Winter}
+\date{Version 0.1 \quad\textbullet\quad \today}
+
+\begin{document}
+\frontmatter
+\maketitle
+
+\chapter*{About this manual}
+
+GLoBES.jl is a Julia implementation of GLoBES, the General Long Baseline
+Experiment Simulator~\cite{Huber:2004ka,Huber:2007ji}. It simulates long-baseline
+and reactor neutrino oscillation experiments described in the Abstract Experiment
+Definition Language (AEDL), and computes event rates and $\Delta\chi^2$ functions
+with systematics, correlations and degeneracies. It reads the same AEDL files as
+GLoBES~3.0.
+
+This manual follows the structure of the GLoBES~3.0 manual~\cite{GLoBESmanual}.
+Part~\ref{part:user} explains how to use GLoBES.jl, with the physics and the
+formulas behind every computation. Part~\ref{part:aedl} describes AEDL.
+Part~\ref{part:reference} is a reference of all functions, of the compatibility
+layer with the C function names, and of the places where GLoBES.jl deliberately
+differs from C GLoBES because the C code has a bug.
+
+Every number and figure in this manual was computed with GLoBES.jl: the script
+\file{docs/manual/figures/make\_figures.jl} produces the data of the figures, and
+the programs listed are in the \file{examples} directory of the package.
+
+\paragraph{Conventions.} Code is set in \code{typewriter}. Energies are in GeV,
+lengths in km, densities in $\mathrm{g/cm^3}$, mass squared differences in
+$\mathrm{eV}^2$ and angles in radians. All numbering (experiments, rules,
+channels, parameters) starts at 1. Boxes like the following point out
+differences from C GLoBES:
+\begin{cdiff}
+In C GLoBES, experiments, rules and channels are numbered from 0. In GLoBES.jl
+they are numbered from 1, in the high-level API and in the \code{glb*}
+compatibility layer.
+\end{cdiff}
+
+\tableofcontents
+
+\mainmatter
+\part{The user's guide}\label{part:user}
+\input{chapters/intro}
+\input{chapters/tour}
+\input{chapters/basics}
+\input{chapters/probabilities}
+\input{chapters/rates}
+\input{chapters/chi2}
+\input{chapters/fits}
+\input{chapters/runtime}
+\input{chapters/nonstandard}
+
+\part{The Abstract Experiment Definition Language}\label{part:aedl}
+\input{chapters/aedl-intro}
+\input{chapters/aedl-reference}
+
+\part{Reference}\label{part:reference}
+\input{chapters/api-reference}
+\input{chapters/compat}
+\input{chapters/cdiffs}
+
+\appendix
+\input{chapters/appendix}
+
+\begin{thebibliography}{99}
+\bibitem{Huber:2004ka} P.~Huber, M.~Lindner and W.~Winter, \emph{Simulation of
+  long-baseline neutrino oscillation experiments with GLoBES}, Comput.\ Phys.\
+  Commun.\ \textbf{167} (2005) 195, \href{https://arxiv.org/abs/hep-ph/0407333}{hep-ph/0407333}.
+\bibitem{Huber:2007ji} P.~Huber, J.~Kopp, M.~Lindner, M.~Rolinec and W.~Winter,
+  \emph{New features in the simulation of neutrino oscillation experiments with
+  GLoBES 3.0}, Comput.\ Phys.\ Commun.\ \textbf{177} (2007) 432,
+  \href{https://arxiv.org/abs/hep-ph/0701187}{hep-ph/0701187}.
+\bibitem{GLoBESmanual} P.~Huber, J.~Kopp, M.~Lindner, M.~Rolinec and W.~Winter,
+  \emph{GLoBES --- General Long Baseline Experiment Simulator, User's Manual},
+  version 3.0.8,
+  \url{https://www.mpi-hd.mpg.de/personalhomes/globes/documentation/globes-manual-3.0.8.pdf}.
+\bibitem{Kopp:2006wp} J.~Kopp, \emph{Efficient numerical diagonalization of
+  hermitian $3\times3$ matrices}, Int.\ J.\ Mod.\ Phys.\ C \textbf{19} (2008) 523,
+  \href{https://arxiv.org/abs/physics/0610206}{physics/0610206}.
+\bibitem{PREM} A.~M.~Dziewonski and D.~L.~Anderson, \emph{Preliminary reference
+  Earth model}, Phys.\ Earth Planet.\ Interiors \textbf{25} (1981) 297.
+\bibitem{Stacey} F.~D.~Stacey, \emph{Physics of the Earth}, 2nd ed., Wiley (1977).
+\bibitem{Fogli:2002pt} G.~L.~Fogli, E.~Lisi, A.~Marrone, D.~Montanino and
+  A.~Palazzo, \emph{Getting the most from the statistical analysis of solar
+  neutrino oscillations}, Phys.\ Rev.\ D \textbf{66} (2002) 053010,
+  \href{https://arxiv.org/abs/hep-ph/0206162}{hep-ph/0206162}.
+\bibitem{Huber:2002mx} P.~Huber, M.~Lindner and W.~Winter, \emph{Superbeams
+  versus neutrino factories}, Nucl.\ Phys.\ B \textbf{645} (2002) 3,
+  \href{https://arxiv.org/abs/hep-ph/0204352}{hep-ph/0204352}.
+\bibitem{Barger:2001yr} V.~Barger, D.~Marfatia and K.~Whisnant, \emph{Breaking
+  eight-fold degeneracies in neutrino CP violation, mixing, and mass hierarchy},
+  Phys.\ Rev.\ D \textbf{65} (2002) 073023,
+  \href{https://arxiv.org/abs/hep-ph/0112119}{hep-ph/0112119}.
+\bibitem{NR} W.~H.~Press, S.~A.~Teukolsky, W.~T.~Vetterling and B.~P.~Flannery,
+  \emph{Numerical Recipes in C}, 2nd ed., Cambridge University Press (1992),
+  Sec.~10.5.
+\bibitem{Fritsch:1980} F.~N.~Fritsch and R.~E.~Carlson, \emph{Monotone piecewise
+  cubic interpolation}, SIAM J.\ Numer.\ Anal.\ \textbf{17} (1980) 238;
+  F.~N.~Fritsch and J.~Butland, \emph{A method for constructing local monotone
+  piecewise cubic interpolants}, SIAM J.\ Sci.\ Stat.\ Comput.\ \textbf{5} (1984) 300.
+\bibitem{Akhmedov:2004ny} E.~K.~Akhmedov, R.~Johansson, M.~Lindner, T.~Ohlsson
+  and T.~Schwetz, \emph{Series expansions for three-flavor neutrino oscillation
+  probabilities in matter}, JHEP \textbf{04} (2004) 078,
+  \href{https://arxiv.org/abs/hep-ph/0402175}{hep-ph/0402175}.
+\bibitem{Huber:2003pm} P.~Huber and W.~Winter, \emph{Neutrino factories and the
+  ``magic'' baseline}, Phys.\ Rev.\ D \textbf{68} (2003) 037301,
+  \href{https://arxiv.org/abs/hep-ph/0301257}{hep-ph/0301257}.
+\end{thebibliography}
+
+\end{document}

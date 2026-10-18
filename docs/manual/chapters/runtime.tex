@@ -1,0 +1,71 @@
+\chapter{Changing experiments at runtime}\label{ch:runtime}
+
+Most properties of an experiment can be changed after it is loaded, for
+example to study the sensitivity as a function of the baseline or the running
+time. After any change, call \code{simulate!} again so that the simulated data
+match the new experiment.
+
+\section{Exposure}\label{sec:exposure}
+
+\begin{apifun}{target\_mass(e)\qquad target\_mass!(e, mass)}
+The fiducial detector mass (in the units of the AEDL file, usually kt).
+\end{apifun}
+\begin{apifun}{running\_time(e; flux=1)\qquad running\_time!(e, years; flux=:all)}
+The running time of one flux, or setting it for one or all fluxes.
+\end{apifun}
+\begin{apifun}{source\_power(e; flux=1)\qquad source\_power!(e, power; flux=:all)}
+The source power: beam power, or useful parent decays per year.
+\end{apifun}
+
+\noindent Since the event numbers are proportional to all three, a scan over
+the exposure is
+\begin{julia}
+for years in (1, 2, 5, 10)
+    running_time!(nova, years / 2)            # half neutrinos, half antineutrinos
+    simulate!(truth)
+    println(years, "  ", chi2(OscParams(truth; δ=0.5π)))
+end
+\end{julia}
+
+\section{Baseline and matter profile}
+
+\code{baseline!(e, L)} changes the baseline and recomputes the density profile
+as the AEDL file defines it, \code{density\_profile!(e, lengths, densities)}
+sets any profile (Section~\ref{sec:profiles}). Note that the flux decreases as
+$1/L^2$ when the baseline changes:
+\begin{julia}
+nf = Experiment("NFstandard.glb")
+for L in 1000:1000:8000
+    baseline!(nf, L)
+    simulate!(truth)
+    println(L, "  ", total_events(nf; rule=1))
+end
+\end{julia}
+
+\section{Systematics and energy windows}
+
+\code{systematics!}, \code{chi2\_function!} and \code{systematic\_errors!}
+(Chapter~\ref{ch:chi2}) change the systematics treatment of rules, and
+\code{energy\_window!} their energy window.
+
+\section{AEDL variables}
+
+AEDL files can use variables that are defined by the program. They are passed
+as keyword arguments when the experiment is loaded; numbers become variables
+and vectors become lists:
+\begin{julia}
+nf = Experiment("NFvar.glb"; BASELINE=3000, emax=50)
+\end{julia}
+In the AEDL file, they are used like any variable,
+\code{\$baseline = BASELINE} (Section~\ref{sec:aedl-variables}). Lists are
+named with a leading \code{\%} in AEDL; the keyword is given without it.
+This is the way to change things that cannot be changed after loading, such
+as the number of bins or the energy range.
+
+\section{The low-pass filter\texorpdfstring{$^\ast$}{*}}
+
+The filter of Section~\ref{sec:filter} is set in AEDL with
+\code{\$filter\_state} and \code{\$filter\_value}; at runtime, use
+\code{glbSetFilterStateInExperiment(i, GLB\_ON)} and
+\code{glbSetFilterInExperiment(i, σ)} with the experiment number
+\code{i} (Chapter~\ref{ch:compat}).

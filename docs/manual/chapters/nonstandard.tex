@@ -1,0 +1,49 @@
+\chapter{Non-standard physics}\label{ch:nonstandard}
+
+GLoBES computes event rates from oscillation probabilities, and nothing else
+in the simulation depends on how these are computed. To simulate a model
+beyond three-flavour oscillations (sterile neutrinos, non-standard
+interactions, decoherence, decay, \dots) replace the probability engine.
+
+\begin{apifun}{probability\_engine!(P!, extra; setup=current\_setup())\\
+standard\_engine!(; setup=current\_setup())}
+Use \code{P!} to compute probabilities, with the additional parameters named
+in \code{extra}, or go back to the standard engine. \code{P!(P, params, E,
+antineutrino, lengths, densities)} fills the $3\times3$ matrix
+\code{P[α, β]} $=P(\nu_\alpha\to\nu_\beta)$ for the \code{OscParams}
+\code{params} at energy \code{E} (GeV) through the layers of the matter
+profile (km and $\mathrm{g/cm^3}$, already scaled by $\rho$).
+\end{apifun}
+
+\noindent After the engine is replaced, \code{OscParams} must have the
+additional parameters (\code{extra=(name=value, ...)}), and the data must be
+simulated again. The additional parameters work everywhere the standard ones
+do: they can be fitted, have priors, and be scanned.
+
+As an example, here is an engine that multiplies the standard probabilities
+by $1-\epsilon$, a crude model of neutrino decay or of a loss of
+normalisation:
+\begin{julia}
+engine = GLoBES.StandardEngine()
+probability_engine!((:ϵ,)) do P, p, E, anti, lengths, densities
+    GLoBES.set_oscillation_parameters!(engine, p.values[1:6])
+    GLoBES.probability_matrix!(P, engine, anti ? -1 : +1, E, length(lengths),
+                               lengths, densities, -1.0)
+    P .*= 1 - p.ϵ
+end
+
+truth = OscParams(truth; extra=(ϵ=0.0,))
+simulate!(truth)
+r = marginalize(OscParams(truth; ϵ=0.1); free=(:ϵ, :θ23), priors=(θ23=0.05,))
+r.params.ϵ                     # ≈ 0: the data have no loss
+\end{julia}
+The standard engine used here (\code{GLoBES.StandardEngine},
+\code{GLoBES.set\_oscillation\_parameters!} and
+\code{GLoBES.probability\_matrix!}) is the one of Chapter~\ref{ch:prob}: a
+model that modifies the Hamiltonian can build on its code in
+\file{src/probability.jl}.
+
+\begin{note}
+The engine is called for every sampling point of every experiment for every
+$\chi^2$ evaluation, so it should be fast and should not allocate memory.
+\end{note}

@@ -196,7 +196,9 @@ function Base.show(io::IO, p::OscParams)
     for (i, n) in enumerate(p.extra_names)
         @printf(io, ", %s=%.5g", n, v[6+i])
     end
-    print(io, ", ρ=", length(p.densities) == 1 ? p.densities[1] : p.densities, ")")
+    ρ = length(p.densities) == 1 ? @sprintf("%.5g", p.densities[1]) :
+        "[" * join((@sprintf("%.5g", x) for x in p.densities), ", ") * "]"
+    print(io, ", ρ=", ρ, ")")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", p::OscParams)

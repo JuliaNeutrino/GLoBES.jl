@@ -1,0 +1,181 @@
+\chapter{Event rates}\label{ch:rates}
+
+\section{From fluxes to events}\label{sec:rate-formula}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[node distance=6mm and 9mm,
+  box/.style={draw,rounded corners=2pt,minimum height=8mm,align=center,font=\small,fill=#1},
+  box/.default=white, >={Stealth[length=2mm]}]
+\node[box=blue!8] (flux) {flux $\Phi_\alpha(E)$};
+\node[box=blue!8,below=of flux] (prob) {probability\\$P_{\alpha\beta}(E)$};
+\node[box=blue!8,below=of prob] (xs) {cross section\\$\sigma_\beta(E)$};
+\node[box=green!8,right=of prob] (pre) {sampling points\\$n_j$, pre-smearing\\efficiency, background};
+\node[box=green!8,right=of pre] (smear) {energy\\resolution $K_{ij}$};
+\node[box=green!8,right=of smear] (post) {bins $N_i$, post-smearing\\efficiency, background};
+\node[box=orange!12,below=12mm of smear] (rule) {rule: $s_i=\sum a_kN^{(c_k)}_i$, \quad $b_i=\sum b_kN^{(c'_k)}_i$, \quad systematics $\to\chi^2$};
+\draw[->] (flux) -- (pre); \draw[->] (prob) -- (pre); \draw[->] (xs) -- (pre);
+\draw[->] (pre) -- (smear); \draw[->] (smear) -- (post); \draw[->] (post) |- (rule);
+\node[draw,dashed,rounded corners,fit=(flux)(xs)(pre)(post),inner sep=6pt,
+  label={[font=\small\itshape]above:channel}] {};
+\end{tikzpicture}
+\caption{How GLoBES computes event rates. A \emph{channel} turns the flux of
+one neutrino flavour into events of one flavour in the detector, binned in
+reconstructed energy; a \emph{rule} combines channels into signal and
+background and computes $\chi^2$.}
+\label{fig:channel}
+\end{figure}
+
+GLoBES computes events in two energy grids: the \emph{sampling points} $E_j$
+(with widths $\Delta E_j$) in true neutrino energy, and the \emph{bins} $i$ in
+reconstructed energy (with edges $E_i^\pm$, centres $E_i$ and widths $\Delta
+E_i$). A \emph{channel} describes neutrinos produced as $\nu_\alpha$ (or
+$\bar\nu_\alpha$) in a flux, detected as $\nu_\beta$ through a cross section,
+with an energy resolution (Figure~\ref{fig:channel}). The number of events of
+channel $c$ at sampling point $j$ is
+\begin{equation}
+n_{c,j} = \Phi_\alpha(E_j)\,P(\nu_\alpha\to\nu_\beta;E_j)\,\sigma_\beta(E_j)\,M\,
+          \epsilon^\text{pre}_{c,j}\,\Delta E_j + B^\text{pre}_{c,j},
+\label{eq:presmear}
+\end{equation}
+with the detector mass $M$ and the pre-smearing efficiencies and backgrounds
+$\epsilon^\text{pre}$ (default 1) and $B^\text{pre}$ (default 0). The flux at
+the detector is
+\begin{equation}
+\Phi_\alpha(E) = \frac{\mathcal N}{L^2}\;\texttt{@norm}\times\texttt{@power}\times
+  \texttt{@stored\_muons}\times\texttt{@time}\;\phi_\alpha(E),
+\label{eq:flux}
+\end{equation}
+where $\phi_\alpha$ is the flux table of the AEDL file (or a built-in flux),
+normalised to a distance of 1~km, and $\mathcal N$ a constant that depends on
+the kind of flux (Section~\ref{sec:aedl-flux}). The cross section $\sigma_\beta(E)
+= E\,(\sigma/E)_\beta(E)$ is in $10^{-38}\,\mathrm{cm}^2$ per nucleon. Channels
+whose flavours are prefixed with \code{NOSC\_} in AEDL do not oscillate:
+$P=\delta_{\alpha\beta}$.
+
+The energy resolution maps the sampling points to the bins,
+\begin{equation}
+N_{c,i} = \epsilon^\text{post}_{c,i}\sum_j K^{(c)}_{ij}\,n_{c,j} + B^\text{post}_{c,i},
+\label{eq:postsmear}
+\end{equation}
+with the smearing matrix $K_{ij}$, the probability that an event at sampling
+point $j$ is reconstructed in bin $i$ (Section~\ref{sec:smearing}), and
+post-smearing efficiencies and backgrounds.
+
+\paragraph{Rules.} A rule adds channels with coefficients to a signal and a
+background,
+\begin{equation}
+s_i = \sum_k a_k\,N_{c_k,i},\qquad b_i = \sum_k b_k\,N_{c'_k,i},
+\label{eq:rule}
+\end{equation}
+and the prediction without systematics is $s_i + \beta_0 b_i$ with the
+background normalisation $\beta_0$ given by \code{@backgroundcenter}. Only the
+bins in the energy window of the rule enter its $\chi^2$.
+
+\section{Getting event rates}
+
+\begin{apifun}{event\_rates(e; rule=1)\\
+event\_rates(e, params::OscParams; rule=1)}
+The rates of one rule in each bin: of the simulated data, or as predicted for
+\code{params}. Returns a named tuple \code{(energy, width, signal, background,
+total)}: bin centres and widths, $s_i$, $\beta_0b_i$, and
+$s_i+\beta_0b_i$ inside the energy window (zero outside). \code{rule} is a
+number or the name of the rule in the AEDL file.
+\end{apifun}
+\begin{apifun}{total\_events(e; rule=1)\qquad total\_events(e, params; rule=1)}
+The sum of \code{event\_rates(...).total}.
+\end{apifun}
+\begin{apifun}{channel\_rates(e, channel; smeared=true)}
+The simulated $N_{c,i}$ of a channel per bin, or with \code{smeared=false}
+$n_{c,j}$ per sampling point.
+\end{apifun}
+\begin{apifun}{rule\_names(e)\qquad channel\_names(e)\qquad bin\_centers(e)\qquad bin\_widths(e)\qquad energy\_range(e)}
+Names of rules and channels as in the AEDL file (without \code{\#}), and the
+reconstructed energy binning.
+\end{apifun}
+\begin{apifun}{energy\_window(e; rule=1)\qquad energy\_window!(e, emin, emax; rule=:all)\qquad energy\_window\_bins(e; rule=1)}
+The energy window of a rule in GeV, changing it, and the bins inside it.
+\end{apifun}
+
+\noindent For example, the spectra of Figure~\ref{fig:nova-rates} come from
+\begin{julia}
+nova = Experiment("NOvA.glb")
+simulate!(truth)
+r  = event_rates(nova; rule="Nu_E_Appearance")
+io = event_rates(nova, OscParams(truth; Δm31=-truth.Δm31 + truth.Δm21); rule=1)
+r.energy, r.signal, r.background, sum(r.total), sum(io.total)
+\end{julia}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$E_\text{rec}$ [GeV]},ylabel={events per bin},xmin=1,xmax=3.5,ymin=0,
+  title={\small $\numu\to\nue$ appearance},legend pos=north east,ybar stacked,bar width=0.08,
+  every axis plot/.append style={line width=0.3pt}]
+\addplot[fill=blue!35,draw=blue!50!black] table[x=E,y=signal]{figures/data/nova_app.dat};
+\addplot[fill=gray!40,draw=gray] table[x=E,y=bg]{figures/data/nova_app.dat};
+\legend{signal,background}
+\end{axis}
+\end{tikzpicture}\hfill
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$E_\text{rec}$ [GeV]},ylabel={events per bin},xmin=1,xmax=3.5,ymin=0,
+  title={\small total, three hypotheses},legend pos=north east]
+\addplot+[const plot mark mid,mark=none] table[x=E,y=total]{figures/data/nova_app.dat};
+\addplot+[const plot mark mid,mark=none] table[x=E,y=total_d90]{figures/data/nova_app.dat};
+\addplot+[const plot mark mid,mark=none] table[x=E,y=total_io]{figures/data/nova_app.dat};
+\legend{true ($\dcp=3\pi/2$),$\dcp=\pi/2$,inverted}
+\end{axis}
+\end{tikzpicture}
+\caption{The $\nue$ appearance rule of \file{NOvA.glb}. Left: signal and
+background of the simulated data. Right: the total rates for the true
+parameters, for $\dcp=\pi/2$, and for inverted ordering
+($\dm{31}\to-\dm{31}+\dm{21}$). Parameters as in Figure~\ref{fig:prob}.}
+\label{fig:nova-rates}
+\end{figure}
+
+\section{Energy resolution}\label{sec:smearing}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[wide,height=0.36\linewidth,xlabel={$E$ [GeV]},ylabel={events per GeV},xmin=0,xmax=1.6,ymin=0,
+  legend pos=north east]
+\addplot[blue!70!black,const plot mark mid] table[x=E,y=rate]{figures/data/smear_pre.dat};
+\addplot[red!70!black,const plot mark mid] table[x=E,y=rate]{figures/data/smear_post.dat};
+\legend{true energy (sampling points),reconstructed energy (bins)}
+\end{axis}
+\end{tikzpicture}
+\caption{The $\nue$ appearance signal channel of \file{T2K.glb} before and
+after the energy resolution, $\sigma_E = 85\,\mathrm{MeV}$. Rates are divided
+by the widths of sampling points and bins. Computed with
+\code{channel\_rates(t2k, "nu\_e\_signal"; smeared=false)} and
+\code{channel\_rates(t2k, "nu\_e\_signal")}.}
+\label{fig:smearing}
+\end{figure}
+
+The energy resolution of a channel is either given as a matrix in the AEDL
+file or computed from a resolution function (Section~\ref{sec:aedl-energy}).
+For a Gaussian resolution with width $\sigma(E)$, the element $K_{ij}$ is the
+probability that an event with true energy $E_j$ is reconstructed in bin $i$,
+\begin{equation}
+K_{ij} = \frac12\left[\mathrm{erf}\!\left(\frac{E^+_i-E_j}{\sqrt2\,\sigma(E_j)}\right)
+                   -\mathrm{erf}\!\left(\frac{E^-_i-E_j}{\sqrt2\,\sigma(E_j)}\right)\right],
+\label{eq:smear}
+\end{equation}
+rounded to multiples of $10^{-7}$, so that the matrix is sparse. The built-in
+resolution functions are
+\begin{align}
+\texttt{\#standard:}\quad & \sigma(E) = a\,E + b\sqrt{E} + c, \qquad \texttt{@sigma\_e = \{a, b, c\}},\\
+\texttt{\#inverse\_beta:}\quad & \sigma(E) = \alpha\sqrt{E/\mathrm{MeV} - 0.8}\;\mathrm{MeV}, \qquad \texttt{@sigma\_e = \{α\}},
+\end{align}
+the second for reactor antineutrinos detected by inverse beta decay, whose
+visible energy is $E-0.8\,\mathrm{MeV}$ (it is $\alpha\,$keV below $1.8\,$MeV).
+With the low-pass filter (Section~\ref{sec:filter}) and \code{@type = 2}, the
+width is reduced to $\sqrt{\sigma(E)^2-\sigma_f^2}$, since the filter already
+averages over $\sigma_f$. Figure~\ref{fig:smearing} shows a spectrum before and
+after smearing.
+
+Events whose reconstructed energy falls outside the bins are lost. The
+sampling points should therefore extend beyond the bins by a few $\sigma$
+(\code{\$sampling\_min}, \code{\$sampling\_max}); by default they coincide with
+the bins.

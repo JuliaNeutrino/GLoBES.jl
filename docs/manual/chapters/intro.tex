@@ -1,0 +1,79 @@
+\chapter{Introduction}\label{ch:intro}
+
+\section{What GLoBES.jl does}
+
+A long-baseline neutrino experiment has a source of neutrinos (an accelerator
+beam, a neutrino factory, a beta beam or a nuclear reactor), a baseline of
+$L$ kilometres through the Earth along which the neutrinos oscillate, and a
+detector that counts neutrinos of certain flavours in bins of reconstructed
+energy. GLoBES.jl computes
+\begin{itemize}
+  \item three-flavour oscillation probabilities in matter of any density profile
+        (Chapter~\ref{ch:prob});
+  \item the expected event rates in every energy bin, for signals and
+        backgrounds, including the energy resolution of the detector
+        (Chapter~\ref{ch:rates});
+  \item the $\Delta\chi^2$ of a hypothesis compared with simulated data, with
+        systematic uncertainties (Chapter~\ref{ch:chi2});
+  \item the $\Delta\chi^2$ minimised over any set of oscillation parameters,
+        with external information on them (``projections'' or
+        ``marginalisation'', Chapter~\ref{ch:fits}), which is how GLoBES treats
+        correlations and degeneracies.
+\end{itemize}
+Experiments are described in text files written in AEDL
+(Part~\ref{part:aedl}). Their flux, cross section, energy resolution,
+efficiency and systematics can be changed at runtime
+(Chapter~\ref{ch:runtime}), and the oscillation probabilities can be replaced by
+those of any non-standard model (Chapter~\ref{ch:nonstandard}).
+
+\section{GLoBES.jl and GLoBES}
+
+GLoBES.jl started as a line-by-line port of the C library GLoBES~3.0.11 and was
+tested against it: the test suite compares probabilities, event rates and
+$\chi^2$ values of thirteen experiment setups with values computed by the C
+library. In the process, a number of bugs of the C library came to light. GLoBES.jl
+fixes them, so that some results differ from C GLoBES; Chapter~\ref{ch:cdiffs}
+lists every difference and why it exists.
+
+GLoBES.jl has two interfaces:
+\begin{description}
+  \item[The high-level API] (Chapters~\ref{ch:tour}--\ref{ch:nonstandard} and
+    \ref{ch:api}) uses named parameters (\code{OscParams(θ13=0.15, ...)}),
+    experiment objects, keyword arguments, return values and exceptions. This
+    is the interface to use for new programs.
+  \item[The \code{glb*} functions] (Chapter~\ref{ch:compat}) have the names and
+    arguments of the C functions, so that C GLoBES programs can be translated
+    line by line. They work like the C library: errors are printed and the
+    functions return error codes.
+\end{description}
+Both work on the same data and can be mixed.
+
+\section{Installation}
+
+GLoBES.jl needs Julia~1.10 or later. Its only dependency besides the standard
+library is \code{SpecialFunctions}. Install it from its directory with
+\begin{julia}
+julia> using Pkg
+julia> Pkg.develop(path="/path/to/GLoBES.jl")
+\end{julia}
+or start Julia with \code{julia --project=/path/to/GLoBES.jl}. Then
+\begin{julia}
+using GLoBES
+\end{julia}
+loads it. The test suite is run with \code{julia --project=. test/runtests.jl}
+in the package directory.
+
+\paragraph{Where AEDL files are found.} \code{Experiment("NOvA.glb")} looks for
+the file in the current directory and then in the directories listed in the
+environment variable \code{GLB\_PATH} (separated by \code{:}). Files that an AEDL
+file includes, and its flux and cross section files, are looked up in the
+current directory, next to the AEDL file, and in \code{GLB\_PATH}. The
+experiments shipped with GLoBES.jl are in \file{test/data} and \file{examples};
+Appendix~\ref{app:files} lists them.
+
+\section{How this manual is organised}
+
+Chapter~\ref{ch:tour} is a guided tour through a complete program. The
+following chapters explain each step in detail together with the formulas
+used. Sections marked with $^\ast$ describe advanced features that most users
+will not need.

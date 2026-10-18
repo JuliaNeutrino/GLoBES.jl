@@ -1,0 +1,99 @@
+\chapter{Function reference}\label{ch:api}
+
+All functions of the high-level API, grouped by topic. Every function also has
+a docstring, shown with \code{?name} in the Julia REPL. Keyword arguments
+\code{setup} default to \code{current\_setup()}; functions taking an
+experiment use the experiment's setup.
+
+\newcommand{\apirow}[2]{\code{#1} & #2 \\}
+\newenvironment{apitable}[1]{\par\medskip\noindent\textbf{#1}\par\nopagebreak\smallskip
+  \small\tabularx{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.47\linewidth}X@{}}\toprule}
+  {\bottomrule\endtabularx\par}
+
+\begin{apitable}{Setups (Section~\ref{sec:setups})}
+\apirow{Setup()}{a new, empty setup}
+\apirow{current\_setup()}{the setup used by default}
+\apirow{with\_setup(f, setup)}{call \code{f()} with \code{setup} as the current setup}
+\end{apitable}
+
+\begin{apitable}{Oscillation parameters (Section~\ref{sec:oscparams})}
+\apirow{OscParams(; θ12, θ13, θ23, δ=0, Δm21, Δm31, ρ=1, extra=())}{create parameters}
+\apirow{OscParams(p; changes...)}{copy with changes}
+\apirow{with\_param(p, name, value)}{copy with one change; also \code{:sin²2θ13} etc.}
+\apirow{p.θ13, p.sin²2θ13, p.ρ, ...}{read parameters}
+\end{apitable}
+
+\begin{apitable}{Experiments (Chapters~\ref{ch:basics}, \ref{ch:runtime})}
+\apirow{Experiment(file; setup, variables...)}{load an AEDL file with one experiment}
+\apirow{load\_experiments(file; setup, variables...)}{load all experiments of a file}
+\apirow{experiments(; setup)}{the experiments of a setup}
+\apirow{clear\_experiments!(; setup)}{remove all experiments}
+\apirow{name(e)}{name of the AEDL file}
+\apirow{rule\_names(e), channel\_names(e)}{names from the AEDL file}
+\apirow{baseline(e), baseline!(e, L)}{baseline in km}
+\apirow{density\_profile(e), density\_profile!(e, l, ρ)}{matter density layers}
+\apirow{prem\_profile(L, n), average\_profile(L)}{the Earth's density along a baseline}
+\apirow{target\_mass(e), target\_mass!(e, m)}{detector mass}
+\apirow{running\_time(e; flux), running\_time!(e, t; flux)}{running time}
+\apirow{source\_power(e; flux), source\_power!(e, p; flux)}{source power}
+\apirow{energy\_range(e), bin\_centers(e), bin\_widths(e)}{reconstructed energy bins}
+\apirow{energy\_window(e; rule), energy\_window!(e, lo, hi; rule)}{energy window of a rule}
+\apirow{energy\_window\_bins(e; rule)}{bins inside the energy window}
+\apirow{flux(e, E; flux, flavour, antineutrino, L)}{source flux}
+\apirow{cross\_section(e, E; xsec, flavour, antineutrino)}{cross section in $10^{-38}\,\mathrm{cm}^2$}
+\end{apitable}
+
+\begin{apitable}{Probabilities (Chapter~\ref{ch:prob})}
+\apirow{probability(p, from, to; E, L, ρ=0, antineutrino=false)}{constant density or vacuum}
+\apirow{probability(p, from, to, e; E, antineutrino=false)}{along an experiment's profile}
+\end{apitable}
+
+\begin{apitable}{Simulated data and event rates (Chapter~\ref{ch:rates})}
+\apirow{simulate!(truth; setup)}{compute the simulated data}
+\apirow{simulated\_params(; setup)}{parameters of the simulated data}
+\apirow{event\_rates(e; rule)}{simulated rates of a rule per bin}
+\apirow{event\_rates(e, p; rule)}{predicted rates for parameters \code{p}}
+\apirow{total\_events(e; rule), total\_events(e, p; rule)}{sum over the energy window}
+\apirow{channel\_rates(e, channel; smeared=true)}{simulated rates of a channel}
+\end{apitable}
+
+\begin{apitable}{$\chi^2$ and systematics (Chapter~\ref{ch:chi2})}
+\apirow{chi2(p; experiment, rule, systematics=true, setup)}{$\chi^2$ minimised over systematics}
+\apirow{systematics!(e, on; rule), systematics!(on; setup)}{switch systematics on or off}
+\apirow{chi2\_function(e; rule, systematics)}{name of a rule's $\chi^2$ function}
+\apirow{chi2\_function!(e, name; rule, errors, systematics)}{change it}
+\apirow{systematic\_errors(e; rule, systematics)}{widths of the nuisance priors}
+\apirow{systematic\_errors!(e, errors; rule, systematics)}{change them}
+\apirow{define\_chi2(f, name, n; setup)}{define a $\chi^2$ function}
+\apirow{true\_rates(e; rule), fit\_rates(e; rule)}{rates inside a $\chi^2$ function}
+\apirow{poisson\_chi2(n, N)}{Poisson $\chi^2$ of one bin}
+\apirow{energy\_scale\_shift(e, rates, b)}{apply an energy calibration error}
+\apirow{energy\_scale\_shift(rates, b; centers, widths)}{the same for any binning}
+\end{apitable}
+
+\begin{apitable}{Fits (Chapter~\ref{ch:fits})}
+\apirow{marginalize(p; free, fixed, priors, centers, prior, experiment, setup)}{minimise over parameters; returns a \code{FitResult}}
+\apirow{r.chi2, r.params, r.free, r.iterations}{fields of a \code{FitResult}}
+\apirow{chi2\_scan(p, x => xs; kwargs...)}{one-parameter scan}
+\apirow{chi2\_scan(p, x => xs, y => ys; kwargs...)}{two-parameter scan}
+\apirow{minimizer!(:nested | :hybrid; setup)}{choose the minimisation strategy}
+\end{apitable}
+
+\begin{apitable}{Non-standard physics (Chapter~\ref{ch:nonstandard})}
+\apirow{probability\_engine!(P!, extra; setup)}{replace the probability engine}
+\apirow{standard\_engine!(; setup)}{restore the standard engine}
+\end{apitable}
+
+\begin{apitable}{Errors}
+\apirow{GLoBESError}{thrown by the high-level API}
+\apirow{AEDLError}{an error in an AEDL file}
+\end{apitable}
+
+\section*{Accessing the engine}
+
+The data of an experiment are in \code{e.data}, an \code{ExperimentData}
+structure with the fields of the C structure \code{glb\_exp} (1-based):
+\code{e.data.rules[r].bg\_centers}, \code{e.data.smear\_data[1].bincenter},
+\code{e.data.lengthtab} and so on. They are useful in user-defined $\chi^2$
+functions, but changing them directly bypasses the consistency checks of the
+functions above.

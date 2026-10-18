@@ -1,0 +1,109 @@
+\chapter{The \texttt{glb*} compatibility layer}\label{ch:compat}
+
+The functions with the names of the C API make it possible to translate C
+GLoBES programs line by line; \file{examples/example1.jl} to
+\file{example6.jl} and \file{example-tour.jl} are such translations of the C
+examples. They are documented in the C GLoBES manual~\cite{GLoBESmanual}; this
+chapter lists how they differ from C and what they correspond to in the
+high-level API.
+
+\section{Conventions}
+
+\begin{itemize}
+\item \textbf{Numbering starts at 1.} Experiments, rules, channels, fluxes and
+  cross sections are numbered from 1, and the parameter indices are
+  \code{GLB\_THETA\_12} $=1$, \code{GLB\_THETA\_13} $=2$, \code{GLB\_THETA\_23}
+  $=3$, \code{GLB\_DELTA\_CP} $=4$, \code{GLB\_DM\_21} $=5$, \code{GLB\_DM\_31} $=6$.
+  \code{GLB\_ALL} selects all experiments or rules.
+\item \textbf{Parameter vectors.} \code{glbAllocParams()} returns a
+  \code{GlbParams} with fields \code{osc}, \code{density} and
+  \code{iterations}; undefined entries are \code{NaN}. \code{glbFreeParams}
+  and \code{glbFreeProjection} do nothing. Since the vectors depend on the
+  number of experiments, allocate them after loading the experiments.
+\item \textbf{Pointers} (\code{glbGetRuleRatePtr} etc.) return the engine's
+  vectors, which change when rates are recomputed. Copy them to keep values.
+\item \textbf{Output.} Printing functions take an optional \code{IO} as first
+  argument (\code{glbPrintParams(io, p)}).
+\item \textbf{Errors} are printed (\code{glbSetVerbosityLevel}) and signalled
+  by return values, as in C. Fatal errors throw a \code{GLoBESError}.
+\item \textbf{$\chi^2$ functions} for \code{glbDefineChiFunction} have the
+  signature \code{f(exp, rule, n\_params, x, errors, user\_data)} with 1-based
+  \code{exp} and \code{rule}.
+\item \textbf{Probability engines} for \code{glbRegisterProbabilityEngine} are
+  \code{prob(P, cp\_sign, E, psteps, lengths, densities, filter\_sigma,
+  user\_data)}, \code{set(p::GlbParams, user\_data)} and \code{get(p,
+  user\_data)}; they return 0 on success.
+\item \textbf{State.} The functions act on the current setup
+  (Section~\ref{sec:setups}).
+\end{itemize}
+
+\section{Correspondence with the high-level API}
+
+{\small\noindent
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.47\linewidth}>{\raggedright\arraybackslash}X@{}}
+\toprule
+C / \code{glb*} & high-level API \\
+\midrule
+\code{glbInit} & (automatic) \\
+\code{glbInitExperiment(file)} & \code{Experiment(file)}, \code{load\_experiments(file)} \\
+\code{glbDefineAEDLVariable}, \code{glbDefineAEDLList} & keyword arguments of \code{Experiment} \\
+\code{glbClearExperimentList} & \code{clear\_experiments!()} \\
+\code{glbNumOfExps} & \code{length(experiments())} \\
+\code{glbDefineParams}, \code{glbSetOscParams}, \code{glbSetDensityParams} & \code{OscParams(...)}, \code{OscParams(p; ...)} \\
+\code{glbSetOscillationParameters} + \code{glbSetRates} & \code{simulate!(truth)} \\
+\code{glbChiSys(p, exp, rule)} & \code{chi2(p; experiment, rule)} \\
+\code{glbChiNP}, \code{glbChiTheta13}, \dots, \code{glbChiAll} & \code{marginalize(p; free=..., fixed=...)} \\
+\code{glbChiTheta13Delta} & \code{marginalize(p; fixed=(:θ13, :δ))} \\
+\code{glbSetProjection}, \code{glbDefineProjection} & \code{free}, \code{fixed} keywords \\
+\code{glbSetCentralValues}, \code{glbSetInputErrors} & \code{centers}, \code{priors} keywords \\
+\code{glbRegisterPriorFunction} & \code{prior} keyword \\
+\code{glbSelectMinimizer} & \code{minimizer!} \\
+\code{glbSwitchSystematics} & \code{systematics!} \\
+\code{glbSetChiFunction}, \code{glbGetChiFunction} & \code{chi2\_function!}, \code{chi2\_function} \\
+\code{glbSetSysErrorsList}, \code{glbGetSysErrorsListPtr} & \code{systematic\_errors!}, \code{systematic\_errors} \\
+\code{glbSetSignalErrors}, \code{glbSetBGErrors} & \code{systematic\_errors!} \\
+\code{glbDefineChiFunction} & \code{define\_chi2} \\
+\code{glbGetRuleRatePtr}, \code{glbGetSignalRatePtr}, \code{glbGetBGRatePtr} & \code{event\_rates(e; rule)} \\
+\code{glbGetSignalFitRatePtr}, \code{glbGetBGFitRatePtr} & \code{fit\_rates(e; rule)}, \code{event\_rates(e, p; rule)} \\
+\code{glbGetChannelRatePtr}, \code{glbGetChannelRates} & \code{channel\_rates} \\
+\code{glbTotalRuleRate} & \code{total\_events} \\
+\code{glbShiftEnergyScale} & \code{energy\_scale\_shift} \\
+\code{glb\_likelihood}, \code{glb\_prior} & \code{poisson\_chi2}, (write $((x-x_0)/\sigma)^2$) \\
+\code{glbVacuumProbability}, \code{glbConstantDensityProbability} & \code{probability(p, a, b; E, L, ρ)} \\
+\code{glbProfileProbability} & \code{probability(p, a, b, e; E)} \\
+\code{glbStaceyProfile}, \code{glbAverageDensityProfile} & \code{prem\_profile}, \code{average\_profile} \\
+\code{glbSetProfileDataInExperiment}, \code{glbGetProfileDataInExperiment} & \code{density\_profile!}, \code{density\_profile} \\
+\code{glbSetBaselineInExperiment} & \code{baseline!} \\
+\code{glbSetTargetMass}, \code{glbSetRunningTime}, \code{glbSetSourcePower} & \code{target\_mass!}, \code{running\_time!}, \code{source\_power!} \\
+\code{glbSetEnergyWindow}, \code{glbGetEnergyWindowBins} & \code{energy\_window!}, \code{energy\_window\_bins} \\
+\code{glbGetBinCentersListPtr}, \code{glbGetBinSizeListPtr} & \code{bin\_centers}, \code{bin\_widths} \\
+\code{glbGetEminEmax} & \code{energy\_range} \\
+\code{glbNameToValue}, \code{glbValueToName} & \code{rule\_names}, \code{channel\_names}; names are accepted for \code{rule} \\
+\code{glbFlux}, \code{glbXSection} & \code{flux}, \code{cross\_section} \\
+\code{glbRegisterProbabilityEngine} & \code{probability\_engine!}, \code{standard\_engine!} \\
+\code{glbSetVerbosityLevel} & (exceptions) \\
+\bottomrule
+\end{tabularx}}
+
+\section{A translated program}
+
+The C code of a $\sst{13}$--$\dcp$ scan (the first example of the C manual)
+and its GLoBES.jl versions:
+\begin{julia}
+# glb* layer: as in C
+true_values = glbAllocParams(); test_values = glbAllocParams()
+glbDefineParams(true_values, θ12, θ13, θ23, δ, Δm21, Δm31)
+glbSetDensityParams(true_values, 1.0, GLB_ALL)
+glbCopyParams(true_values, test_values)
+glbSetOscillationParameters(true_values); glbSetRates()
+for x in -4:0.04:-2, y in 0:4:200
+    glbSetOscParams(test_values, asin(sqrt(10^x)) / 2, GLB_THETA_13)
+    glbSetOscParams(test_values, y * π / 180, GLB_DELTA_CP)
+    res = glbChiSys(test_values, GLB_ALL, GLB_ALL)
+end
+
+# high-level API
+truth = OscParams(; θ12, θ13, θ23, δ, Δm21, Δm31)
+simulate!(truth)
+grid = chi2_scan(truth, :sin²2θ13 => exp10.(-4:0.04:-2), :δ => deg2rad.(0:4:200))
+\end{julia}

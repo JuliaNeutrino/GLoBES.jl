@@ -1,0 +1,24 @@
+Precompiling packages...
+  10437.7 ms  ✓ GLoBES
+  1 dependency successfully precompiled in 11 seconds. 13 already precompiled.
+P(νe → νe): 0.999955 in vacuum, 0.999965 in matter
+P(νe → νμ): 0.000026 in vacuum, 0.000020 in matter
+P(νe → ντ): 0.000019 in vacuum, 0.000015 in matter
+
+χ² with systematics only:            21.6592
+from the first rule only:            20.4451
+sum over the rules:                  21.6592
+statistics only:                     35.1847
+
+χ² with correlations:                 2.0310
+at the minimum: OscParams(θ12=0.54144, θ13=0.01937, θ23=0.74526, δ=1.7483, Δm21=6.6472e-05, Δm31=0.0020054, ρ=1.0039)
+with δ fixed as well:                 4.0329
+with only δ and ρ free:               2.7875
+
+χ² at the inverted-hierarchy minimum: 4.5557
+at OscParams(θ12=0.5861, θ13=0.027644, θ23=0.72443, δ=1.0473, Δm21=7.8378e-05, Δm31=-0.0019133, ρ=0.97732)
+
+magic baseline: 7500 km, average density 4.2529 g/cm³
+χ² of both experiments:              28.2240
+χ² at 7500 km:                        6.5648
+with correlations:                    3.5797

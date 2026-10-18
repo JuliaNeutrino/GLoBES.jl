@@ -1,0 +1,275 @@
+\chapter{\texorpdfstring{$\chi^2$}{chi2} with systematics}\label{ch:chi2}
+
+\section{The Poisson \texorpdfstring{$\chi^2$}{chi2}}\label{sec:poisson}
+
+GLoBES compares the simulated event numbers $n_i$ (the ``data'', from
+\code{simulate!}) with the event numbers $N_i$ predicted for a hypothesis with
+the Poisson log-likelihood ratio
+\begin{equation}
+\chi^2 = \sum_i \chi^2_\text{P}(n_i, N_i),\qquad
+\chi^2_\text{P}(n, N) = 2\Bigl(N - n + n\ln\frac{n}{N}\Bigr),
+\label{eq:poisson}
+\end{equation}
+which is $-2\ln$ of the ratio of the Poisson probabilities of $n$ for the
+predicted mean $N$ and for the best possible mean $n$. For large event numbers,
+$\chi^2_\text{P}\to(n-N)^2/n$, the Gaussian $\chi^2$
+(Figure~\ref{fig:poisson}). The function is also available as
+\code{poisson\_chi2(n, N)}, for user-defined $\chi^2$ functions.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[wide,height=0.36\linewidth,xlabel={predicted events $N$},ylabel={$\chi^2_\text{P}(n,N)$},
+  xmin=0,xmax=25,ymin=0,ymax=20,legend pos=north east]
+\addplot table[x=fit,y=n0]{figures/data/poisson.dat};
+\addplot table[x=fit,y=n1]{figures/data/poisson.dat};
+\addplot table[x=fit,y=n5]{figures/data/poisson.dat};
+\addplot table[x=fit,y=n10]{figures/data/poisson.dat};
+\addplot[black,dashed] table[x=fit,y=gauss10]{figures/data/poisson.dat};
+\legend{$n=0$,$n=1$,$n=5$,$n=10$,$(N-10)^2/10$}
+\end{axis}
+\end{tikzpicture}
+\caption{The Poisson $\chi^2$ of one bin with $n$ observed (simulated) events
+as a function of the prediction $N$, and the Gaussian approximation for
+$n=10$.}
+\label{fig:poisson}
+\end{figure}
+
+\paragraph{Empty bins and vanishing predictions.} For $n=0$,
+$\chi^2_\text{P}=2N$; an empty bin with $N=0$ contributes nothing. If
+systematics push the prediction to $N\le0$ while $n>0$, the logarithm diverges.
+Below $N_0=10^{-10}$, $\chi^2_\text{P}$ is therefore continued by its Taylor
+expansion of second order around $N_0$, a steep but finite and smooth wall that
+minimisers can handle:
+\begin{equation}
+\chi^2_\text{P}(n, N) = \chi^2_\text{P}(n,N_0) + 2\Bigl(1-\frac{n}{N_0}\Bigr)(N-N_0)
+  + \frac{n}{N_0^2}(N-N_0)^2 \qquad (N<N_0).
+\end{equation}
+A negative prediction for an empty bin gives $2|N|$.
+
+\begin{cdiff}
+C GLoBES returns $10^{100}$ for every bin with $N\le0$, including empty bins
+with $n=N=0$. A rule with an empty bin (for instance a background that
+vanishes at some energies) then has $\chi^2=10^{100}$ whatever the parameters,
+and minimisers see a discontinuous function
+(Section~\ref{sec:cdiff-poisson}).
+\end{cdiff}
+
+\section{Systematics and the pull method}\label{sec:pull}
+
+Systematic uncertainties are described by nuisance parameters $\zeta_k$ (the
+``pulls''): for example, the signal normalisation is $(1+\zeta_1)$ times the
+nominal one, with a Gaussian uncertainty $\sigma_1$. The $\chi^2$ of a rule is
+minimised over them,
+\begin{equation}
+\chi^2_\text{rule} = \min_{\zeta}\Bigl[\sum_{i\in\text{window}}\chi^2_\text{P}\bigl(n_i,N_i(\zeta)\bigr)
+  + \sum_k\frac{(\zeta_k-\zeta_k^0)^2}{\sigma_k^2}\Bigr],
+\label{eq:pull}
+\end{equation}
+independently for every rule~\cite{Fogli:2002pt}, and the $\chi^2$ of an
+experiment is the sum over its rules. The minimisation uses Powell's method
+(Section~\ref{sec:minimizer}).
+
+\subsection{Built-in systematics functions}\label{sec:builtin-chi2}
+
+Each rule uses one $\chi^2$ function with systematics on and one with
+systematics off (\code{@sys\_on\_function} and \code{@sys\_off\_function} in
+AEDL). The built-in functions are listed in Table~\ref{tab:chi2functions}.
+They use the signal $s_i$ and background $b_i$ of Eq.~\eqref{eq:rule}, the
+background normalisation $\beta_0$ and background tilt centre $\tau_0$ of
+\code{@backgroundcenter} (default $1:0$), and the errors
+$\sigma_1,\dots,\sigma_4$ (\code{@signalerror} $=\sigma_1:\sigma_2$,
+\code{@backgrounderror} $=\sigma_3:\sigma_4$, or \code{@sys\_on\_errors}).
+With $\bar E = (E_\text{min}+E_\text{max})/2$ and
+$\Delta E = E_\text{max}-E_\text{min}$ the reconstructed energy range of the
+experiment, and $E_i$ the bin centres:
+
+\begin{table}[t]
+\centering\small
+\begin{tabularx}{\linewidth}{llcX}
+\toprule
+Name & Parameters & Old \code{errordim} & Description \\
+\midrule
+\code{chiSpectrumTilt}    & 4 & 0 & normalisation and tilt of signal and background, Eq.~\eqref{eq:tilt} \\
+\code{chiNoSysSpectrum}   & 0 & 2 & spectrum without systematics \\
+\code{chiTotalRatesTilt}  & 4 & 4 & as \code{chiSpectrumTilt}, total rates only \\
+\code{chiSpectrumOnly}    & 1 & 7 & spectrum with free signal normalisation \\
+\code{chiNoSysTotalRates} & 0 & 8 & total rates without systematics \\
+\code{chiSpectrumCalib}   & 4 & 9 & normalisation and energy calibration, Eq.~\eqref{eq:calib} \\
+\code{chiZero}            & 0 & -- & always 0 (rules used by other rules' $\chi^2$) \\
+\bottomrule
+\end{tabularx}
+\caption{Built-in $\chi^2$ functions. The old \code{errordim} numbers of GLoBES
+2.x are still accepted in AEDL (\code{@errordim\_sys\_on}).}
+\label{tab:chi2functions}
+\end{table}
+
+\paragraph{\code{chiSpectrumTilt}} (four nuisance parameters):
+\begin{gather}
+N_i = (1+\zeta_1)\,s_i + \frac{\zeta_2}{\Delta E}(E_i-\bar E)\,s_i
+    + \beta_0(1+\zeta_3)\,b_i + \frac{\zeta_4}{\Delta E}(E_i-\bar E)\,b_i,
+\label{eq:tilt}\\
+\chi^2 = \sum_i\chi^2_\text{P}(n_i,N_i) + \frac{\zeta_1^2}{\sigma_1^2} + \frac{\zeta_2^2}{\sigma_2^2}
+  + \frac{\beta_0^2\zeta_3^2}{\sigma_3^2} + \frac{(\zeta_4-\tau_0)^2}{\sigma_4^2}.
+\end{gather}
+The ``tilt'' $\zeta_2$ is a linear distortion of the spectrum, a simple model of
+an energy calibration uncertainty.
+
+\paragraph{\code{chiTotalRatesTilt}:} the same $N_i$ and priors, but with
+$\chi^2_\text{P}(\sum_i n_i,\sum_i N_i)$, so that only the total number of
+events is used.
+
+\paragraph{\code{chiNoSysSpectrum}, \code{chiNoSysTotalRates}:}
+$N_i = s_i+\beta_0 b_i$ without nuisance parameters, binned or total.
+
+\paragraph{\code{chiSpectrumOnly}:} $N_i = (1+\zeta_1)s_i + \beta_0b_i$ with no prior
+on $\zeta_1$: only the shape of the spectrum is used.
+
+\paragraph{\code{chiSpectrumCalib}} (energy calibration error):
+\begin{gather}
+N_i = (1+\zeta_1)\,\mathcal S_{\zeta_2}[s]_i + \beta_0(1+\zeta_3)\,\mathcal S_{\tau_0+\zeta_4}[b]_i,
+\label{eq:calib}\\
+\chi^2 = \sum_i\chi^2_\text{P}(n_i,N_i) + \frac{\zeta_1^2}{\sigma_1^2} + \frac{\zeta_2^2}{\sigma_2^2}
+  + \frac{\beta_0^2\zeta_3^2}{\sigma_3^2} + \frac{\zeta_4^2}{\sigma_4^2},
+\end{gather}
+where $\mathcal S_b$ shifts the energy scale of a spectrum by a relative amount
+$b$ (Section~\ref{sec:escale}).
+
+\begin{cdiff}
+In \code{chiSpectrumTilt} and \code{chiTotalRatesTilt} C GLoBES applies the
+prior of the background tilt to $\zeta_4/\Delta E$ instead of $\zeta_4$, so that
+the background tilt error is effectively $\sigma_4\,\Delta E$ instead of
+$\sigma_4$ (Section~\ref{sec:cdiff-tilt}).
+\end{cdiff}
+
+\subsection{The energy calibration error}\label{sec:escale}
+
+An energy scale error $b$ means that an event reconstructed at energy $E$ in
+the simulation is reconstructed at $(1+b)E$ in the real detector, or,
+equivalently, that the bin $[E_i^-,E_i^+]$ of the shifted spectrum contains the
+events of the nominal spectrum between $(1+b)E_i^-$ and $(1+b)E_i^+$. With the
+cumulative event number $F(E)$ of the nominal spectrum, which is known at the
+bin edges,
+\begin{equation}
+F(E_i^+) = \sum_{k\le i} s_k ,\qquad
+\mathcal S_b[s]_i = F\bigl((1+b)E_i^+\bigr) - F\bigl((1+b)E_i^-\bigr).
+\label{eq:shift}
+\end{equation}
+Between the edges, $F$ is interpolated with a monotone cubic Hermite
+interpolant (Fritsch--Carlson with the Fritsch--Butland slopes~\cite{Fritsch:1980}
+and shape-preserving one-sided slopes at the ends). There are no events outside
+the binned range: $F$ is $0$ below it and constant above it. As a result,
+$\mathcal S_b$
+\begin{itemize}
+\item reproduces the spectrum for $b=0$ and conserves the number of events
+      inside the range,
+\item never gives negative rates, because $F$ is monotone,
+\item is smooth in $b$, so that the minimisation over $b$ is well behaved,
+\item works for bins of any width.
+\end{itemize}
+\code{energy\_scale\_shift(e, rates, b)} applies it to any spectrum of an
+experiment.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$E_\text{rec}$ [GeV]},ylabel={events per bin},xmin=1,xmax=3.5,ymin=0,
+  title={\small $b=\pm5\%$},legend pos=north west]
+\addplot[black,const plot mark mid] table[x=E,y=nominal]{figures/data/escale_spec.dat};
+\addplot[blue!70!black,const plot mark mid] table[x=E,y=jl_p]{figures/data/escale_spec.dat};
+\addplot[blue!70!black,const plot mark mid,dashed] table[x=E,y=jl_m]{figures/data/escale_spec.dat};
+\addplot[red!70!black,only marks,mark=o,mark size=1.2pt] table[x=E,y=c_p]{figures/data/escale_spec.dat};
+\addplot[red!70!black,only marks,mark=x,mark size=1.6pt] table[x=E,y=c_m]{figures/data/escale_spec.dat};
+\legend{$b=0$,$b=+0.05$,$b=-0.05$,C $+0.05$,C $-0.05$}
+\end{axis}
+\end{tikzpicture}\hfill
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$b$},ylabel={$\chi^2$},xmin=-0.01,xmax=0.01,ymin=0,
+  title={\small $\chi^2$ of the shifted spectrum},legend pos=north east,
+  xticklabel style={/pgf/number format/fixed}, scaled x ticks=false]
+\addplot table[x=b,y=jl]{figures/data/escale_chi.dat};
+\addplot table[x=b,y=c]{figures/data/escale_chi.dat};
+\legend{GLoBES.jl,C GLoBES}
+\end{axis}
+\end{tikzpicture}
+\caption{The energy scale shift applied to the $\numu$ disappearance signal of
+\file{NOvA.glb}. Left: the spectrum shifted by $\pm5\%$ with
+Eq.~\eqref{eq:shift} (lines) and with the method of C GLoBES (symbols).
+Right: $\chi^2_\text{P}$ of the shifted against the nominal spectrum. The
+interpolation of C GLoBES makes it kinked at $b=0$; Eq.~\eqref{eq:shift} is
+smooth with a minimum at $b=0$.}
+\label{fig:escale}
+\end{figure}
+
+\begin{cdiff}
+C GLoBES computes $\mathcal S_b[s]_i = (1+b)\,s(\delta_i)$ by linear
+interpolation of the rates at the shifted bin positions
+$\delta_i = b(i+t_0+\frac12)+i$. Interpolating the rates and not their
+integral makes $\chi^2$ kinked at $b=0$ in every bin (Figure~\ref{fig:escale}),
+the last bin is counted twice when the spectrum is shifted past the upper end,
+and the method requires equal bins. See Section~\ref{sec:cdiff-escale}.
+\end{cdiff}
+
+\section{Computing \texorpdfstring{$\chi^2$}{chi2}}
+
+\begin{apifun}{chi2(test::OscParams; experiment=:all, rule=:all, systematics=true, setup=current\_setup())}
+$\chi^2$ of the hypothesis \code{test}, minimised over the systematics of
+every rule but not over oscillation parameters, summed over all experiments
+and rules, or for one experiment (an \code{Experiment}) or one rule (a number
+or name; with \code{experiment=:all} the rule number in every experiment).
+\code{systematics=false} uses the \code{@sys\_off\_function} of the rules.
+\end{apifun}
+\begin{apifun}{systematics!(e, on::Bool; rule=:all)\qquad systematics!(on::Bool; setup)}
+Switch systematics on or off, for some rules or for all experiments.
+\end{apifun}
+\begin{apifun}{chi2\_function(e; rule=1, systematics=true)\\
+chi2\_function!(e, name; rule=:all, errors, systematics=true)}
+The name of the $\chi^2$ function of a rule, and changing it, with the errors
+of its nuisance parameters.
+\end{apifun}
+\begin{apifun}{systematic\_errors(e; rule=1, systematics=true)\\
+systematic\_errors!(e, errors; rule=:all, systematics=true)}
+The prior widths $\sigma_k$ of the nuisance parameters.
+\end{apifun}
+
+\begin{julia}
+chi2(test)                                   # all experiments and rules
+chi2(test; experiment=nova, rule="Nu_E_Appearance")
+chi2(test; systematics=false)                # statistics only
+chi2_function!(nova, "chiSpectrumCalib"; rule=2, errors=[0.025, 0.02, 0.05, 0.02])
+systematic_errors!(nova, [0.05, 0.0001, 0.1, 0.0001]; rule=1)
+\end{julia}
+
+\section{User-defined systematics\texorpdfstring{$^\ast$}{*}}\label{sec:userchi2}
+
+A $\chi^2$ function that is not built in, for example for systematics that are
+correlated between rules or between a near and a far detector, is defined with
+\begin{apifun}{define\_chi2(f, name, n\_params; setup=current\_setup())}
+Register \code{f(e::Experiment, rule::Int, x, errors) -> χ²} under
+\code{name}. \code{x} are the \code{n\_params} nuisance parameters, which are
+minimised over, and \code{errors} their prior widths from the AEDL file or
+\code{chi2\_function!}. \code{f} must include the priors.
+\end{apifun}
+
+\noindent Inside \code{f}, \code{true\_rates(e; rule)} are the simulated rates
+$n_i$ of a rule and \code{fit\_rates(e; rule)} the signal $s_i$ and background
+$b_i$ predicted for the parameters being tested (before $\beta_0$ and
+systematics), \code{energy\_window\_bins(e; rule)} the bins to sum over, and
+\code{energy\_scale\_shift} and \code{poisson\_chi2} help with the
+computation. The functions must be defined before AEDL files that use them are
+loaded. For example, a normalisation error common to the signal and background:
+\begin{julia}
+define_chi2("chiCommonNorm", 1) do e, rule, x, errors
+    n = true_rates(e; rule)
+    s, b = fit_rates(e; rule)
+    β0 = e.data.rules[rule].bg_centers[1]
+    sum(poisson_chi2(n[i], (1 + x[1]) * (s[i] + β0 * b[i])) for i in energy_window_bins(e; rule)) +
+        (x[1] / errors[1])^2
+end
+nova = Experiment("NOvA.glb")
+chi2_function!(nova, "chiCommonNorm"; errors=[0.05])
+\end{julia}
+A rule whose events enter the $\chi^2$ of another rule (a near detector, say)
+uses \code{chiZero}; the function of the other rule reads its rates with
+\code{true\_rates} and \code{fit\_rates}. For correlations between
+experiments, \code{experiments()} gives all experiments of the setup.

@@ -1,0 +1,74 @@
+\chapter{A tour of GLoBES.jl}\label{ch:tour}
+
+This chapter goes through a complete program, \file{examples/tour.jl}. It
+simulates a neutrino factory with a baseline of $3000\km$ and asks how well it
+can tell the true value of $\sst{13}=0.001$ from $\sst{13}=0.0015$. The program
+is the GLoBES.jl version of the tour of the C GLoBES manual.
+
+\section{The program}
+
+\VerbatimInput[breaklines,frame=leftline,framerule=1.5pt,rulecolor=\color{coderule},
+  xleftmargin=6pt,framesep=8pt,fontsize=\small,firstline=6,numbers=left,numbersep=4pt]{../../examples/tour.jl}
+
+\section{What it does}
+
+\paragraph{Lines 6--8: the parameters.} An \code{OscParams} holds the six
+oscillation parameters $\theta_{12}$, $\theta_{13}$, $\theta_{23}$, $\dcp$,
+$\dm{21}$ and $\dm{31}$, and the matter density scaling factor $\rho$, which
+multiplies the density profile of each experiment and is $1$ unless given.
+The parameters are named, so their order does not matter; ASCII names such as
+\code{theta13} and \code{dm31} work too.
+
+\paragraph{Lines 10--12: the experiment and the simulated data.}
+\code{Experiment} reads an AEDL file. \code{simulate!} computes the event rates
+of all loaded experiments for the true parameters. These rates are the
+``data'' every $\chi^2$ is computed against.
+
+\paragraph{Lines 14--18: probabilities.} \code{probability(params, from, to; E, L)}
+is the vacuum oscillation probability; with an experiment instead of a
+baseline it is computed along the experiment's matter density profile.
+
+\paragraph{Lines 20--26: $\chi^2$ with systematics.} \code{with\_param} changes
+a parameter given as $\sst{13}$; \code{chi2} compares the event rates predicted
+for the test parameters with the simulated ones. It is minimised over the
+systematic uncertainties (``nuisance parameters'') of each rule of each
+experiment, but not over oscillation parameters. The rules of an experiment are
+its independent measurements, here the $\nue\to\numu$ appearance and the
+$\numu$ disappearance channels of $\mu^+$ and $\mu^-$ running. Their $\chi^2$
+add up to the total. \code{systematics=false} gives the purely statistical
+$\chi^2$.
+
+\paragraph{Lines 28--38: correlations.} \code{marginalize} minimises $\chi^2$
+over oscillation parameters. Here all parameters except $\theta_{13}$ are free,
+which is the $\chi^2$ of the hypothesis $\sst{13}=0.0015$ ``projected'' onto
+the $\theta_{13}$ axis. The solar parameters cannot be measured by this
+experiment and get Gaussian priors (external information) of 10\%, the matter
+density one of 5\%. The fit finds a lower $\chi^2$ because other parameters can
+partly compensate for the wrong value of $\theta_{13}$. \code{fixed} and
+\code{free} choose which parameters are fitted.
+
+\paragraph{Lines 40--45: degeneracies.} The minimiser finds the local minimum
+nearest to its starting point. A fit started at $\dm{31}<0$ finds the
+\emph{sign degeneracy}, the best fit with inverted mass ordering, and its
+$\chi^2$ tells how well the experiment excludes it.
+
+\paragraph{Lines 47--56: two experiments.} A second neutrino factory gets a
+baseline of $7500\km$ (the ``magic baseline''~\cite{Huber:2003pm}) through
+\code{density\_profile!}. The data are simulated again for both experiments,
+and \code{chi2} and \code{marginalize} now add the $\chi^2$ of both. With
+\code{experiment=magic}, only one experiment is used.
+
+\section{The output}
+
+\VerbatimInput[frame=single,rulecolor=\color{gray!60},xleftmargin=6pt,framesep=6pt,
+  fontsize=\footnotesize]{figures/data/tour-output.txt}
+
+\noindent
+Systematics reduce the $\chi^2$ from 35 (statistics only) to 22, and
+correlations with the other parameters, mainly $\dcp$, reduce it to 2.0: on
+its own, the neutrino factory cannot distinguish $\sst{13}=0.0015$ from
+$0.001$ at $2\sigma$ once $\dcp$ is unknown (Table~\ref{tab:cl}). With $\dcp$
+fixed the $\chi^2$ is 4.0. The inverted-ordering solution has $\chi^2=4.56$, so
+the mass ordering is determined at only about $2\sigma$. The second detector at
+the magic baseline, where the oscillations hardly depend on $\dcp$, raises the
+$\chi^2$ with correlations to 3.6.

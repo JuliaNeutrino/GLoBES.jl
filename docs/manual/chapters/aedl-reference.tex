@@ -1,0 +1,243 @@
+\chapter{Experiment definition with AEDL}\label{ch:aedl-reference}
+
+This chapter lists all AEDL directives. Defaults are given in brackets.
+
+\section{Source and integrated luminosity}\label{sec:aedl-flux}
+
+\begin{center}\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\multicolumn{2}{l}{\code{nuflux(\#name)< ... >} (or the older \code{flux}, see below)} \\
+\midrule
+\code{@flux\_file = "file"} & flux table (see below) \\
+\code{@builtin = n} & built-in flux: 1 $\mu^+$ decay, 2 $\mu^-$ decay (neutrino factory),
+  3 $\beta^+$ decay, 4 $\beta^-$ decay (beta beam) \\
+\code{@time} & running time [1] \\
+\code{@power} & source power [1], e.g.\ MW \\
+\code{@stored\_muons}, \code{@stored\_ions} & useful parent decays per year [1] \\
+\code{@norm} & normalisation of the flux table [1] \\
+\code{@parent\_energy} & muon energy in GeV (built-in 1, 2) \\
+\code{@gamma}, \code{@end\_point} & Lorentz factor of the ions and endpoint of the
+  decay in GeV (built-in 3, 4) \\
+\midrule
+\code{\$target\_mass} & fiducial detector mass, e.g.\ kt \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Flux files} have 501 lines of seven columns, with equidistant
+energies:
+\[
+E\ [\mathrm{GeV}]\quad \phi_{\nue}\quad\phi_{\numu}\quad\phi_{\nu_\tau}\quad
+\phi_{\bar\nu_e}\quad\phi_{\bar\nu_\mu}\quad\phi_{\bar\nu_\tau}
+\]
+Lines starting with \code{\#} are comments. The flux is interpolated linearly
+and is zero outside the table. Unused flavours must be given as zeros.
+
+\paragraph{Normalisation.} The flux in Eq.~\eqref{eq:flux} is
+$\mathcal N/L^2\times$\code{@norm}$\times$\code{@power}$\times$\code{@stored\_muons}$\times$\code{@time}$\times\phi(E)$,
+with $\mathcal N=1$ for \code{nuflux} tables. Together with the cross sections
+in $10^{-38}\,\mathrm{cm^2}$ per nucleon and the target mass $M$, the number
+of events per GeV is
+\begin{equation}
+\frac{dN}{dE} = \frac{\texttt{@norm}\times\texttt{@power}\times\texttt{@time}\times M}{(L/\mathrm{km})^2}\,
+  \phi(E)\,\frac{\sigma(E)}{10^{-38}\,\mathrm{cm}^2}\,P(E).
+\end{equation}
+If the table gives the number of neutrinos per GeV and per area $A$ at a
+distance $L_0$ for an integrated luminosity $\mathcal L$ (in the units
+$\mathcal L_u$ chosen for \code{@power}$\times$\code{@time}), the normalisation is
+\begin{equation}
+\texttt{@norm} = \frac{\mathrm{cm}^2}{A}\left(\frac{L_0}{\mathrm{km}}\right)^2
+  \frac{N_\text{target}}{M_u}\times10^{-38}\times\frac{\mathcal L_u}{\mathcal L},
+\end{equation}
+with $N_\text{target}/M_u$ the number of target nucleons per unit of the
+target mass ($6.022\times10^{32}$ per kt). The older environment \code{flux}
+multiplies by $\mathcal N = 5.1989$ in addition; replace \code{flux} by
+\code{nuflux} and multiply \code{@norm} by $5.1989$ to convert. Built-in fluxes
+have their own normalisation and need no \code{@norm}.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[manual,xlabel={$E$ [GeV]},ylabel={$\phi$ at 1~km [a.u.]},xmin=0,xmax=50,ymin=0,
+  title={\small neutrino factory, $\mu^+$, 50 GeV},legend pos=north west]
+\addplot table[x=E,y=numubar]{figures/data/nf_flux.dat};
+\addplot table[x=E,y=nue]{figures/data/nf_flux.dat};
+\legend{$\bar\nu_\mu$,$\nue$}
+\end{axis}
+\end{tikzpicture}\hfill
+\begin{tikzpicture}
+\begin{semilogxaxis}[manual,xlabel={$E$ [GeV]},ylabel={$\sigma/E$ [$10^{-38}\,\mathrm{cm^2/GeV}$]},
+  xmin=0.1,xmax=100,ymin=0,title={\small charged current, \file{XCC.dat}},legend pos=north west]
+\addplot table[x=E,y=numu]{figures/data/xsec.dat};
+\addplot table[x=E,y=numubar]{figures/data/xsec.dat};
+\legend{$\numu$,$\bar\nu_\mu$}
+\end{semilogxaxis}
+\end{tikzpicture}
+\caption{Left: the built-in neutrino factory flux (\code{@builtin = 1}) of
+\file{NFstandard.glb}, \code{flux(nf, E; flavour=:μ, antineutrino=true, L=1)}.
+Right: the charged-current cross sections per nucleon divided by energy,
+\code{cross\_section(nf, E; flavour=:μ) / E}.}
+\label{fig:flux}
+\end{figure}
+
+\paragraph{Built-in fluxes.} The neutrino factory flux (\code{@builtin = 1, 2})
+is that of muons of energy $E_\mu$ (\code{@parent\_energy}) decaying at rest in
+the beam direction, with $x = 2E/(E_\mu(1+\beta))$,
+\begin{equation}
+\phi_{\bar\nu_\mu}\ (\phi_{\numu}) \propto \frac{\gamma(1+\beta)}{\pi m_\mu}\,x^2(3-2x),\qquad
+\phi_{\nue}\ (\phi_{\bar\nu_e}) \propto \frac{\gamma(1+\beta)}{\pi m_\mu}\,6x^2(1-x),
+\end{equation}
+for $\mu^+$ ($\mu^-$) decays, up to the endpoint $x=1$. The beta beam flux
+(\code{@builtin = 3, 4}) is the spectrum of nuclear beta decay with endpoint
+$E_0$ (\code{@end\_point}), boosted by $\gamma$ (Figure~\ref{fig:flux}):
+\begin{equation}
+\phi(E) = \frac{\gamma^2}{\pi\,g(y_e)\,E}\,x^3(1-x)\sqrt{(1-x)^2-y_e^2},\qquad
+x = \frac{E}{2\gamma(E_0+m_e)},\quad y_e = \frac{m_e}{E_0+m_e},
+\end{equation}
+with the phase space integral
+$g(y)=\frac1{60}\bigl[\sqrt{1-y^2}(2-9y^2-8y^4)+15y^4\ln\frac{1+\sqrt{1-y^2}}{y}\bigr]$
+(normalised to a distance of 1~km).
+
+\begin{cdiff}
+C GLoBES uses $\pi=3.1415$, $\log_{10}$ instead of $\ln$ in $g(y)$, an old value
+of Avogadro's number, and rounded muon and electron masses. Its flux
+interpolation divides the energy range of the table into 501 instead of 500
+steps, which evaluates every flux at $1.002$ times the requested energy, and
+the built-in fluxes are tabulated only up to $500/501$ of their endpoint
+(Section~\ref{sec:cdiff-flux}).
+\end{cdiff}
+
+\section{Baseline and matter density profile}\label{sec:aedl-baseline}
+
+\begin{center}\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\code{\$baseline} & baseline in km \\
+\code{\$profiletype = 1} & a single layer with the average density along \code{\$baseline} \\
+\code{\$profiletype = 2} & \code{\$densitysteps} layers of equal length with the Earth's density \\
+\code{\$profiletype = 3} & layers \code{\$lengthtab = \{...\}} (km) with densities
+  \code{\$densitytab = \{...\}} ($\mathrm{g/cm^3}$); the baseline is their total length \\
+\bottomrule
+\end{tabularx}
+\end{center}
+A constant density $\rho$ is \code{\$profiletype = 3},
+\code{\$densitytab = \{ρ\}}, \code{\$lengthtab = \{L\}}. See
+Section~\ref{sec:profiles}.
+
+\section{Cross sections}\label{sec:aedl-cross}
+
+\code{cross(\#name)< @cross\_file = "file" >} reads a table of 1001 lines with
+equidistant $\log_{10}(E/\mathrm{GeV})$:
+\[
+\log_{10}E\quad \hat\sigma_{\nue}\quad\hat\sigma_{\numu}\quad\hat\sigma_{\nu_\tau}\quad
+\hat\sigma_{\bar\nu_e}\quad\hat\sigma_{\bar\nu_\mu}\quad\hat\sigma_{\bar\nu_\tau},
+\qquad \hat\sigma = \frac{\sigma(E)}{E}\ \bigl[10^{-38}\,\mathrm{cm^2/GeV}\bigr].
+\]
+The table is interpolated linearly in $\log_{10}E$ and is zero outside. The
+files shipped with GLoBES, \file{XCC.dat} (charged current), \file{XNC.dat}
+(neutral current) and \file{XQE.dat} (quasi-elastic), cover $0.1$ to $1000\GeV$
+and are per nucleon of an isoscalar target.
+
+\section{Channels}\label{sec:aedl-channel}
+
+\begin{aedl}
+channel(#name)<
+   @channel = #flux : +|- : initial : final : #cross : #energy
+   @pre_smearing_efficiencies  = {...}    // one per sampling point [1]
+   @pre_smearing_background    = {...}    // one per sampling point [0]
+   @post_smearing_efficiencies = {...}    // one per bin [1]
+   @post_smearing_background   = {...}    // one per bin [0]
+>
+\end{aedl}
+\code{+} and \code{-} are neutrinos and antineutrinos of the flux. Flavours are
+\code{e}, \code{m}, \code{t} (also \code{electron}, \code{muon}, \code{tau});
+\code{NOSC\_e} etc.\ give a channel without oscillations ($P=1$ for equal
+flavours), for neutral currents and intrinsic backgrounds. The efficiencies and
+backgrounds are $\epsilon^\text{pre}$, $B^\text{pre}$, $\epsilon^\text{post}$
+and $B^\text{post}$ of Eqs.~\eqref{eq:presmear} and~\eqref{eq:postsmear}.
+
+\section{Energy resolution}\label{sec:aedl-energy}
+
+\paragraph{Binning.}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\code{\$emin}, \code{\$emax} & range of reconstructed energies in GeV \\
+\code{\$bins} & number of bins of equal width \\
+\code{\$binsize = \{...\}} & bin widths instead, for unequal bins (they must add up to the range) \\
+\code{\$sampling\_min}, \code{\$sampling\_max} & range of true energies [\code{\$emin}, \code{\$emax}] \\
+\code{\$sampling\_points} & number of sampling points [\code{\$bins}] \\
+\code{\$sampling\_stepsize = \{...\}} & widths of the sampling steps instead \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Resolution functions.}
+\begin{aedl}
+energy(#name)<
+   @type = 1                       // 2: reduce the width by the filter
+   @sigma_function = #standard     // or #inverse_beta
+   @sigma_e = {0.15, 0, 0}         // σ(E) = 0.15 E
+>
+\end{aedl}
+The smearing matrix is computed from Eq.~\eqref{eq:smear} with the
+resolution functions of Section~\ref{sec:smearing}.
+
+\paragraph{Smearing matrices.} The matrix $K_{ij}$ can also be given row by
+row, one row per bin $i$, each with the first and last sampling point (counted
+from 0) of its non-zero entries followed by the entries:
+\begin{aedl}
+energy(#migration)<
+   @energy = {0, 2, 0.6, 0.3, 0.1} :
+             {0, 3, 0.2, 0.5, 0.2, 0.1} :
+             ...
+             {17, 19, 0.1, 0.3, 0.6} ;
+>
+\end{aedl}
+Matrices from detector simulations (for example the beta beam files
+\file{*EffMig350.dat}) are included this way.
+
+\paragraph{Filter.}\label{sec:aedl-filter} \code{\$filter\_state = 1} and
+\code{\$filter\_value = }$\sigma_f$ (GeV) switch on the low-pass filter of
+Section~\ref{sec:filter}.
+
+\section{Rules and systematics}\label{sec:aedl-rule}
+
+\begin{aedl}
+rule(#name)<
+   @signal          = 0.5 @ #channel_1
+   @background      = 0.001 @ #channel_2 : 0.005 @ #channel_3
+   @signalerror     = 0.05 : 0.0001        // σ1 : σ2
+   @backgrounderror = 0.1 : 0.0001         // σ3 : σ4
+   @backgroundcenter = 1.0 : 0.0           // β0 : τ0 (better not used)
+   @sys_on_function  = "chiSpectrumTilt"
+   @sys_off_function = "chiNoSysSpectrum"
+   @energy_window    = 0.5 : 3.0            // GeV
+>
+\end{aedl}
+\code{@signal} and \code{@background} are the coefficients $a_k$ and $b_k$ of
+Eq.~\eqref{eq:rule}. The errors are those of the built-in $\chi^2$ functions
+(Section~\ref{sec:builtin-chi2}). Functions with other numbers of parameters
+(user-defined ones) take their errors as lists, \code{@sys\_on\_errors =
+\{0.02, 0.05\}} and \code{@sys\_off\_errors}, which also override
+\code{@signalerror} and \code{@backgrounderror} for built-in functions. The
+energy window restricts the bins used in the $\chi^2$ of the rule
+[\code{\$emin} : \code{\$emax}]; with an energy calibration error, it should
+leave a margin of a few times the error at both ends. GLoBES 2 files may use
+\code{@errordim\_sys\_on} and \code{@errordim\_sys\_off}
+(Table~\ref{tab:chi2functions}).
+
+\section{Testing AEDL files}
+
+Load the file and look at what it defines:
+\begin{julia}
+e = Experiment("MyExperiment.glb")       # parse errors are thrown with file and line
+display(e)                               # baseline, mass, bins, rules
+channel_names(e), rule_names(e)
+simulate!(truth)
+event_rates(e; rule=1)                   # signal and background per bin
+[sum(channel_rates(e, c)) for c in eachindex(channel_names(e))]
+\end{julia}
+Compare the total event numbers with those published for the experiment; most
+problems are a wrong flux normalisation (\code{@norm}) or efficiencies.
