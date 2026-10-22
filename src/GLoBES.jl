@@ -23,6 +23,8 @@ module GLoBES
 using LinearAlgebra
 using Printf
 using SpecialFunctions: erf
+import Downloads
+import p7zip_jll
 
 const GLB_VERSION = "3.0.11"
 
@@ -250,6 +252,7 @@ include("minimize.jl")
 include("api.jl")
 include("highlevel.jl")
 include("mathematica.jl")
+include("nufit.jl")
 
 function __init__()
     glbInit()
@@ -350,6 +353,9 @@ export Setup,
     standard_engine!,
     flux,
     cross_section
+
+# Models, NuFIT, reports
+export nufit, nufit_params, nufit_priors, nufit_ranges, nufit_chi2, nufit_prior, nufit_download
 
 export glbInit,
     glbInitExperiment,
