@@ -1,0 +1,3 @@
+[codespell]
+# Journal abbreviations (Comput. Phys. Commun., Numer.) and a variable name in example4.jl
+ignore-words-list = commun,numer,thex
