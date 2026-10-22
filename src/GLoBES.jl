@@ -257,6 +257,7 @@ include("spectrum.jl")
 include("mechanisms.jl")
 include("newphysics.jl")
 include("nufit.jl")
+include("oscmodel.jl")
 
 function __init__()
     glbInit()
@@ -394,7 +395,16 @@ export BSMModel,
     nufit_ranges,
     nufit_chi2,
     nufit_prior,
-    nufit_download
+    nufit_download,
+    OscillationModel,
+    load_model,
+    model_from_string,
+    model_parameters,
+    hamiltonian,
+    effective_mixing,
+    effective_masses,
+    effective_parameters,
+    model_probability
 
 export glbInit,
     glbInitExperiment,

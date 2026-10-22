@@ -16,3 +16,4 @@ probability(p, :μ, :e; E = 2.5, L = 1300, ρ = 2.848)
 ```
 
 The scalar NSI and decoherence agree with the C engine of the SNSI-decoherence DUNE study to 10⁻¹² (see `test/reference`, built with CODATA constants).
+For other Hamiltonians, write a model file (see [Oscillation models](@ref oscillation-models)).
