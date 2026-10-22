@@ -1,0 +1,50 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - main
+    tags: ["*"]
+  pull_request:
+    paths:
+      - "src/**"
+      - "ext/**"
+      - "*.toml"
+      - ".github/workflows/Quality.yml"
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  quality:
+    name: Aqua and JET
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1"
+      - name: Use Julia cache
+        uses: julia-actions/cache@v3
+      # Aqua: ambiguities, unbound type parameters, undefined exports, stale
+      # dependencies, compat bounds, piracy and persistent tasks.
+      # JET in :typo mode: undefined names and fields, found without running the code.
+      - name: Run Aqua and JET
+        run: |
+          julia -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(["Aqua", "JET"])
+            using Aqua, JET, GLoBES, Test
+            @testset "Aqua" begin
+              Aqua.test_all(GLoBES)
+            end
+            @testset "JET" begin
+              JET.test_package(GLoBES; target_modules = (GLoBES,), mode = :typo)
+            end
+          '
