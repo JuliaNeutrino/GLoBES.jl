@@ -1,5 +1,6 @@
 using GLoBES
 using Test
+using LinearAlgebra
 using SpecialFunctions: erf
 
 # Reference numbers from the C library, see reference/make_reference.c.
@@ -487,4 +488,6 @@ end
 
 # Beyond GLoBES: models, NuFIT, new physics, LaTeX and analyses
 include("mathematica.jl")
+include("sarah.jl")
+include("mechanisms.jl")
 include("nufit.jl")

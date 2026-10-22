@@ -252,6 +252,9 @@ include("minimize.jl")
 include("api.jl")
 include("highlevel.jl")
 include("mathematica.jl")
+include("sarah.jl")
+include("spectrum.jl")
+include("mechanisms.jl")
 include("nufit.jl")
 
 function __init__()
@@ -355,7 +358,37 @@ export Setup,
     cross_section
 
 # Models, NuFIT, reports
-export nufit, nufit_params, nufit_priors, nufit_ranges, nufit_chi2, nufit_prior, nufit_download
+export BSMModel,
+    load_sarah,
+    check_model,
+    add_gauge!,
+    add_global!,
+    add_fermion!,
+    add_scalar!,
+    add_lagrangian!,
+    add_vevs!,
+    add_parameter!,
+    spectrum,
+    read_leshouches,
+    leshouches_values,
+    write_leshouches,
+    ScotogenicLoop,
+    TypeISeesaw,
+    neutrino_mass_matrix,
+    neutrino_spectrum,
+    casas_ibarra,
+    orthogonal_matrix,
+    pmns_matrix,
+    light_masses,
+    br_lfv,
+    scotogenic_masses,
+    nufit,
+    nufit_params,
+    nufit_priors,
+    nufit_ranges,
+    nufit_chi2,
+    nufit_prior,
+    nufit_download
 
 export glbInit,
     glbInitExperiment,
