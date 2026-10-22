@@ -249,6 +249,7 @@ include("systematics.jl")
 include("minimize.jl")
 include("api.jl")
 include("highlevel.jl")
+include("mathematica.jl")
 
 function __init__()
     glbInit()

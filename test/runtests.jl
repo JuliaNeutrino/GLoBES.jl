@@ -484,3 +484,6 @@ cd(DATADIR) do
         include("highlevel.jl")
     end
 end
+
+# Beyond GLoBES: models, NuFIT, new physics, LaTeX and analyses
+include("mathematica.jl")
