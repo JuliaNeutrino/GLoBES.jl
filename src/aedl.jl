@@ -58,15 +58,15 @@ function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::Abstr
     s = collect(read(path, String))
     n = length(s)
     toks = Token[]
-    line = 1
+    line = Ref(1)    # a Ref, since `tok` captures it
     i = 1
     dir = dirname(abspath(path))
-    tok(kind, text, val = 0.0) = push!(toks, Token(kind, text, val, display_name, line, dir))
+    tok(kind, text, val = 0.0) = push!(toks, Token(kind, text, val, display_name, line[], dir))
     while i <= n
         c = s[i]
         if c == '\n'
             tok(:nl, "\n")
-            line += 1
+            line[] += 1
             i += 1
         elseif c == ' ' || c == '\t' || c == '\r'
             i += 1
@@ -77,7 +77,7 @@ function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::Abstr
         elseif c == '/' && i < n && s[i + 1] == '*'
             i += 2
             while i <= n && !(s[i] == '*' && i < n && s[i + 1] == '/')
-                s[i] == '\n' && (line += 1)
+                s[i] == '\n' && (line[] += 1)
                 i += 1
             end
             i += 2
@@ -86,17 +86,18 @@ function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::Abstr
         elseif c == '"'
             j = i + 1
             while j <= n && s[j] != '"'
-                s[j] == '\n' && throw(AEDLError("Unterminated string in $display_name:$line"))
+                s[j] == '\n' && throw(AEDLError("Unterminated string in $display_name:$(line[])"))
                 j += 1
             end
-            j > n && throw(AEDLError("Unterminated string in $display_name:$line"))
+            j > n && throw(AEDLError("Unterminated string in $display_name:$(line[])"))
             str = String(s[(i + 1):(j - 1)])
             i = j + 1
             if !isempty(toks) && toks[end].kind == :ident && toks[end].text == "include"
                 pop!(toks)
                 incpath = glb_find_file(str, dirname(path))
-                incpath === nothing &&
-                    throw(AEDLError("Could not open include file \"$str\" ($display_name:$line)"))
+                incpath === nothing && throw(
+                    AEDLError("Could not open include file \"$str\" ($display_name:$(line[]))"),
+                )
                 inc = aedl_tokenize(incpath; depth = depth + 1, display_name = str)
                 inc[end].kind == :eof && pop!(inc)
                 append!(toks, inc)
@@ -137,7 +138,7 @@ function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::Abstr
                 tok(:hash, String(s[i:(j - 1)]))
                 i = j
             else
-                throw(AEDLError("Unexpected '#' in $display_name:$line"))
+                throw(AEDLError("Unexpected '#' in $display_name:$(line[])"))
             end
         else
             tok(:op, string(c))
