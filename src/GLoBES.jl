@@ -258,6 +258,7 @@ include("mechanisms.jl")
 include("newphysics.jl")
 include("nufit.jl")
 include("oscmodel.jl")
+include("latex.jl")
 
 function __init__()
     glbInit()
@@ -404,7 +405,17 @@ export BSMModel,
     effective_mixing,
     effective_masses,
     effective_parameters,
-    model_probability
+    model_probability,
+    latex,
+    latex_expression,
+    latex_table,
+    TexReport,
+    add!,
+    section!,
+    figure!,
+    table!,
+    write_tex,
+    compile_tex
 
 export glbInit,
     glbInitExperiment,
