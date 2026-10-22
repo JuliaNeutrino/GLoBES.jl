@@ -10,9 +10,10 @@ MyModel/
   MyModel.m      the model: blocks for the mixing matrix, masses and additional terms
   parameters.m   parameter values (NuFIT by default), LaTeX names, units, ranges
   particles.m    optional: Flavours = {e, mu, tau, s}
+  Run.m          what to calculate, plot, fit and write to LaTeX
 ```
 
-[`load_model`](@ref) reads the model.
+[`load_model`](@ref) reads the model, [`run_model`](@ref) executes `Run.m`.
 `examples/models` has the scalar NSI with decoherence (`SNSI`) and a 3+1 sterile neutrino (`Sterile`).
 
 ## Blocks
@@ -50,3 +51,21 @@ model_probability(m, p, :mu, :s; E = 2.0, L = 1300)
 ```
 
 Matter eigenstates are numbered like the vacuum states they evolve into as the density decreases.
+
+## Run files
+
+```mathematica
+L = 1300 km;
+rho = 2.848;
+
+Calculate[EffectiveMixingMatrix]{ E = 2.5 GeV, Parameters = {eta_etau -> 0.1} }
+Plot[Pmue]{ Type = Probability, E = Range[0.5, 10, 0.025],
+            Curves = {"SM" -> {}, "eta_etau = 0.1" -> {eta_etau -> 0.1}},
+            Band = {"delta_etau" -> {eta_etau -> 0.1, delta_etau -> Range[0, 2 Pi, Pi/18]}} }
+Fit[Eta]{ Experiment = "DUNE.glb", Scan = {eta_etau -> Range[-0.1, 0.1, 0.01]},
+          Free = {theta23, deltaCP, dm31}, Priors = NuFit, Output = "eta.dat" }
+LaTeX["results.tex"]{ Title = "...", NuFit = Off Print["Text added to the document."] }
+```
+
+`Calculate` takes `EffectiveMixingMatrix`, `EffectiveMasses`, `EffectiveParameters`, `Hamiltonian`, `MixingMatrix` and `Probability`; `Fit` takes `Type = Scan`, `MassOrdering` or `CPViolation`; `Plot` needs `using Plots`.
+The LaTeX file has a section per model block, the parameters and the results; `Model`, `Hamiltonian`, `Definitions`, `Parameters`, `NuFit`, the block kinds, `Results`, `Fits` and `Figures` switch parts `On` or `Off`.

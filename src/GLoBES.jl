@@ -260,6 +260,7 @@ include("nufit.jl")
 include("oscmodel.jl")
 include("latex.jl")
 include("analysis.jl")
+include("runfile.jl")
 
 function __init__()
     glbInit()
@@ -407,6 +408,8 @@ export BSMModel,
     effective_masses,
     effective_parameters,
     model_probability,
+    run_model,
+    ModelRun,
     latex,
     latex_expression,
     latex_table,
