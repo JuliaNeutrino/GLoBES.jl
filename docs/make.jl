@@ -72,6 +72,8 @@ makedocs(;
     format = Documenter.HTML(;
         canonical = "https://arnavk23.github.io/GLoBES.jl",
         assets = ["assets/style.css"],
+        # the API reference is one page with every docstring
+        size_threshold = 400 * 2^10,
     ),
     pages = list_pages(),
 )

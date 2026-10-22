@@ -259,6 +259,7 @@ include("newphysics.jl")
 include("nufit.jl")
 include("oscmodel.jl")
 include("latex.jl")
+include("analysis.jl")
 
 function __init__()
     glbInit()
@@ -415,7 +416,18 @@ export BSMModel,
     figure!,
     table!,
     write_tex,
-    compile_tex
+    compile_tex,
+    probability_band,
+    mass_ordering_sensitivity,
+    cp_violation_sensitivity,
+    chi2_profile,
+    plot_probability,
+    plot_events,
+    plot_curves,
+    plot_contour,
+    plot_nufit,
+    plot_grid,
+    paper_theme!
 
 export glbInit,
     glbInitExperiment,
