@@ -255,6 +255,7 @@ include("mathematica.jl")
 include("sarah.jl")
 include("spectrum.jl")
 include("mechanisms.jl")
+include("newphysics.jl")
 include("nufit.jl")
 
 function __init__()
@@ -382,6 +383,11 @@ export BSMModel,
     light_masses,
     br_lfv,
     scotogenic_masses,
+    NewPhysics,
+    ScalarNSI,
+    MatterNSI,
+    Decoherence,
+    use_model!,
     nufit,
     nufit_params,
     nufit_priors,
