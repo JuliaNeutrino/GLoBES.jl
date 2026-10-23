@@ -9,6 +9,8 @@ on:
       - "ext/**"
       - "test/**"
       - "*.toml"
+      - ".github/workflows/*Test*.yml"
+      - "codecov.yml"
     types: [opened, synchronize, reopened]
 
 concurrency:
@@ -19,6 +21,9 @@ concurrency:
 
 jobs:
   test:
+    permissions:
+      contents: read
+      id-token: write # Codecov upload with OpenID Connect
     strategy:
       fail-fast: false
       matrix:
@@ -32,5 +37,3 @@ jobs:
       arch: x64
       allow_failure: false
       run_codecov: ${{ matrix.version == '1' }}
-    secrets:
-      codecov_token: ${{ secrets.CODECOV_TOKEN }}
