@@ -1,5 +1,5 @@
 # The control file of a model directory (Run.m): what to calculate, plot,
-# fit and write to LaTeX, written like SARAH's SPheno.m. Each entry is
+# fit and write to LaTeX. Each entry is
 # {name, {options}} and the entries run in the order of the file.
 #
 #   Calculate[[1]] = {EffectiveMasses, {E -> 2.5, rho -> 2.848}};

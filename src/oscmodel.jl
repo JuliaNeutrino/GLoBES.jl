@@ -1,4 +1,4 @@
-# Oscillation models defined in files written like SARAH model files: each
+# Oscillation models defined in Mathematica-style files: each
 # ingredient of the effective Hamiltonian is one assignment, and every
 # ingredient that is left out takes its built-in default.
 #
@@ -231,7 +231,7 @@ const MODEL_FUNCTIONS = Set([
 """
     load_model(dir; model, parameters, particles, run) -> OscillationModel
 
-Read an oscillation model from a directory like a SARAH model:
+Read an oscillation model from a directory of model files:
 
     MyModel/
       MyModel.m        the model: mixing matrix, masses, hierarchies, additional terms

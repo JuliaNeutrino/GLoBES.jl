@@ -488,7 +488,7 @@ end
 
 # Beyond GLoBES: models, NuFIT, new physics, LaTeX and analyses
 include("mathematica.jl")
-include("sarah.jl")
+include("particlemodel.jl")
 include("mechanisms.jl")
 include("nufit.jl")
 include("newphysics.jl")

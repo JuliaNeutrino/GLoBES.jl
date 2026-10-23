@@ -3,7 +3,7 @@
 # parametrisation of the Yukawa couplings and lepton flavour violation.
 #
 # Conventions: the Yukawa matrix Y has one row per heavy state N_k and one
-# column per lepton flavour (SARAH's `Yn Et.n.l` is Y[k,α] N_k η l_α), and the
+# column per lepton flavour (the Lagrangian term `Yn Et.n.l` is Y[k,α] N_k η l_α), and the
 # light neutrino mass matrix is Mν = Yᵀ Λ Y = U* diag(m) U†, with U the PMNS
 # matrix including the Majorana phases.
 
@@ -33,10 +33,10 @@ one loop of the Z₂-odd singlet fermions N_k and the inert doublet η,
     (Mν)_αβ = Σ_k Y_kα Y_kβ M_k/(32π²) [m_R²/(m_R² − M_k²) ln(m_R²/M_k²) − (R → I)],
 
 with m_R,I² = m_η² + (λ₃ + λ₄ ± λ₅) v²/2. The keywords are the names of the
-parameters in the model values, by default those of the SARAH model file.
+parameters in the model values, by default those of the scotogenic model file.
 
 ```julia
-mech = ScotogenicLoop()   # parameter names as in SARAH's scotogenic model
+mech = ScotogenicLoop()   # parameter names as in the scotogenic model file
 mech = ScotogenicLoop(yukawa = :Y, majorana = :MN)   # other names for the Yukawa matrix and the Majorana masses
 ```
 """
@@ -337,7 +337,7 @@ hep-ph/0103065; Toma and Vicente, arXiv:1312.2840 for the scotogenic model).
 orthogonal matrix (see [`orthogonal_matrix`](@ref)).
 
 ```julia
-mech = ScotogenicLoop()   # the mechanism, with SARAH's parameter names
+mech = ScotogenicLoop()   # the mechanism, with the parameter names of the model file
 values = Dict(:Mn => [1e3, 2e3, 3e3], :mEt2 => 1e6, :lambda3 => 0.1, :lambda4 => 0.1, :lambda5 => 1e-9, :v => 246.22)   # the other parameters, in GeV
 values[:Yn] = casas_ibarra(mech, values, nufit_params("6.1"); lightest = 1e-3)   # mechanism, values, oscillation parameters to reproduce, lightest mass in eV
 values[:Yn] = casas_ibarra(mech, values, nufit_params("6.1"); R = orthogonal_matrix(0.3, 0, 0))   # with a complex orthogonal matrix

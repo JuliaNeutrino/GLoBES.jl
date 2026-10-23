@@ -1,6 +1,6 @@
-# Particle-physics models in the format of SARAH model files.
+# Particle-physics models in Mathematica-style model files.
 #
-# A model is read from the SARAH files (`Model.m`, and optionally `particles.m`,
+# A model is read from its files (`Model.m`, and optionally `particles.m`,
 # `parameters.m`, `SPheno.m`) or built in Julia with the same blocks. GLoBES.jl
 # then checks the Lagrangian for gauge and global invariance, computes the
 # tree-level scalar spectrum after electroweak symmetry breaking, prints the
@@ -15,7 +15,7 @@
     GaugeGroup(boson, group, name, coupling; N=1, expand=false, charge=1)
 
 A factor of the gauge group: `group` is `:U1` or `:SU` (with `N`), as in
-SARAH's `Gauge[[i]] = {B, U[1], hypercharge, g1, False, 1}`.
+the model file's `Gauge[[i]] = {B, U[1], hypercharge, g1, False, 1}`.
 """
 struct GaugeGroup
     boson::Symbol
@@ -42,7 +42,7 @@ end
 """
     ModelField
 
-A gauge multiplet of fermions (left-handed Weyl spinors, as in SARAH) or
+A gauge multiplet of fermions (left-handed Weyl spinors) or
 complex scalars: `generations` copies, the SU(2) `components`, and one charge
 per gauge group (the U(1) charge, or the dimension of the SU(N)
 representation, negative for the conjugate) followed by the global charges.
@@ -59,7 +59,7 @@ end
 """
     LagrangianTerm(name, expr; hc=false)
 
-A named piece of the Lagrangian (SARAH's `LagFer`, `LagH`, ...), a parsed
+A named piece of the Lagrangian (`LagFer`, `LagH`, ... in the model file), a parsed
 expression, and whether its Hermitian conjugate is added.
 """
 struct LagrangianTerm
@@ -71,10 +71,10 @@ end
 """
     BSMModel
 
-A particle-physics model in SARAH's structure: symmetries, fields, the
+A particle-physics model in the structure of its model file: symmetries, fields, the
 Lagrangian and the definitions of the eigenstates after symmetry breaking,
 with optional LaTeX names and LesHouches positions of parameters and
-particles. Create one with [`load_sarah`](@ref) or [`BSMModel(name)`](@ref)
+particles. Create one with [`load_particle_model`](@ref) or [`BSMModel(name)`](@ref)
 and the `add_*!` functions.
 """
 mutable struct BSMModel
@@ -176,7 +176,7 @@ charge_string(q) = string(q)
 """
     add_gauge!(model, boson, group, name, coupling; expand=false, charge=1)
 
-Add a gauge group: `group` is `:U1`, or `(:SU, N)`. Like SARAH's
+Add a gauge group: `group` is `:U1`, or `(:SU, N)`. As in the model file,
 `Gauge[[i]] = {boson, group, name, coupling, expand, charge}`.
 
 ```julia
@@ -220,7 +220,7 @@ end
 Add a multiplet of left-handed Weyl fermions or complex scalars, with one
 charge per gauge group in the order they were added, then one per global
 symmetry. `conjugated=true` marks right-handed fields entered as their
-conjugates, like SARAH's `conj[dR]`.
+conjugates, like `conj[dR]` in the model file.
 
 ```julia
 add_fermion!(m, :l, 3, (:vL, :eL), -1 // 2, 2, 1, 1)   # model, name, generations, SU(2) components, hypercharge, SU(2) and SU(3) dimensions, Z2 charge
@@ -248,10 +248,10 @@ end
 """
     add_lagrangian!(model, name, expr; hc=false)
 
-Add a piece of the Lagrangian, written in SARAH's syntax:
+Add a piece of the Lagrangian, written as in the model file:
 
 ```julia
-add_lagrangian!(m, :LagFer, "Ye conj[H].e.l + Yn Et.n.l"; hc = true)   # model, name, terms in SARAH's syntax, add the Hermitian conjugate
+add_lagrangian!(m, :LagFer, "Ye conj[H].e.l + Yn Et.n.l"; hc = true)   # model, name, terms as in the model file, add the Hermitian conjugate
 add_lagrangian!(m, :LagNV, "Mn/2 n.n"; hc = true)   # Majorana masses of the singlet fermions
 add_lagrangian!(m, :LagH, "-(-mH2 conj[H].H + 1/2 lambda1 conj[H].H.conj[H].H)")   # self-conjugate: no Hermitian conjugate
 ```
@@ -266,8 +266,8 @@ end
 """
     add_vevs!(model, (component, vev, (pseudoscalar, coefficient), (scalar, coefficient)), ...)
 
-Decompose neutral scalars after electroweak symmetry breaking, like SARAH's
-`DEFINITION[EWSB][VEVs]`. Coefficients are numbers or SARAH expressions:
+Decompose neutral scalars after electroweak symmetry breaking, like
+`DEFINITION[EWSB][VEVs]` in the model file. Coefficients are numbers or expressions:
 
 ```julia
 add_vevs!(m, (:H0, :v, (:Ah, "I/Sqrt[2]"), (:hh, "1/Sqrt[2]")), (:et0, 0, (:etI, "I/Sqrt[2]"), (:etR, "1/Sqrt[2]")))   # model, then (neutral component, vev, (CP-odd state, coefficient), (CP-even state, coefficient)) for each
@@ -298,7 +298,7 @@ end
     add_parameter!(model, name; latex, description, real, leshouches)
 
 LaTeX name, description and LesHouches position (`(:HDM, 1)` for an entry,
-`:YN` for a matrix block) of a parameter, like a line of SARAH's
+`:YN` for a matrix block) of a parameter, like a line of
 `parameters.m`.
 
 ```julia
@@ -317,23 +317,23 @@ function add_parameter!(m::BSMModel, name; kwargs...)
 end
 
 # ---------------------------------------------------------------------------
-#  Reading SARAH files
+#  Reading model files
 # ---------------------------------------------------------------------------
 
 """
-    load_sarah(dir_or_file; particles, parameters, spheno) -> BSMModel
+    load_particle_model(dir_or_file; particles, parameters, spheno) -> BSMModel
 
-Read a SARAH model: the main model file and, if they exist next to it,
+Read a particle model: the main model file and, if they exist next to it,
 `particles.m`, `parameters.m` and `SPheno.m`. `dir_or_file` is the model
 directory (which must contain `<name>.m`, or exactly one other model file)
 or the main file itself.
 
 ```julia
-scoto = load_sarah("Scotogenic/")   # model directory with Scotogenic.m and particles.m, parameters.m, SPheno.m
-scoto = load_sarah("Scotogenic/Scotogenic.m"; spheno = "Scotogenic/SPheno.m")   # the model file, the others by name
+scoto = load_particle_model("Scotogenic/")   # model directory with Scotogenic.m and particles.m, parameters.m, SPheno.m
+scoto = load_particle_model("Scotogenic/Scotogenic.m"; spheno = "Scotogenic/SPheno.m")   # the model file, the others by name
 ```
 """
-function load_sarah(
+function load_particle_model(
     path::AbstractString;
     particles = nothing,
     parameters = nothing,
@@ -344,11 +344,11 @@ function load_sarah(
     dir = dirname(main)
     m = BSMModel(splitext(basename(main))[1])
     m.source = main
-    read_sarah_file!(m, main)
+    read_particle_file!(m, main)
     for (file, default) in
         ((particles, "particles.m"), (parameters, "parameters.m"), (spheno, "SPheno.m"))
         f = something(file, joinpath(dir, default))
-        isfile(f) && read_sarah_file!(m, f)
+        isfile(f) && read_particle_file!(m, f)
     end
     return m
 end
@@ -364,17 +364,17 @@ function find_model_file(dir)
 end
 
 """
-    read_sarah_file!(model, file)
+    read_particle_file!(model, file)
 
-Read the statements of one SARAH file into `model`. Unknown statements are
+Read the statements of one model file into `model`. Unknown statements are
 kept in `model.assignments`.
 """
-function read_sarah_file!(m::BSMModel, file::AbstractString)
-    read_sarah_string!(m, read(file, String))
+function read_particle_file!(m::BSMModel, file::AbstractString)
+    read_particle_string!(m, read(file, String))
     return m
 end
 
-function read_sarah_string!(m::BSMModel, src::AbstractString)
+function read_particle_string!(m::BSMModel, src::AbstractString)
     lag_input = nothing
     for st in parse_mathematica(src)
         is_call(st, :Set) || is_call(st, :SetDelayed) || continue
@@ -420,13 +420,13 @@ function read_sarah_string!(m::BSMModel, src::AbstractString)
         elseif is_call(lhs, :Part)
             block, i = lhs.args[1], lhs.args[2]
             if block === :Gauge
-                set_index!(m.gauge, i, gauge_from_sarah(rhs))
+                set_index!(m.gauge, i, gauge_entry(rhs))
             elseif block === :Global
-                set_index!(m.global_symmetries, i, global_from_sarah(rhs))
+                set_index!(m.global_symmetries, i, global_entry(rhs))
             elseif block === :FermionFields
-                set_index!(m.fields, field_slot(m, :fermion, i), field_from_sarah(:fermion, rhs))
+                set_index!(m.fields, field_slot(m, :fermion, i), field_entry(:fermion, rhs))
             elseif block === :ScalarFields
-                set_index!(m.fields, field_slot(m, :scalar, i), field_from_sarah(:scalar, rhs))
+                set_index!(m.fields, field_slot(m, :scalar, i), field_entry(:scalar, rhs))
             else
                 m.assignments[Symbol(block, "_", i)] = rhs
             end
@@ -484,7 +484,7 @@ function set_index!(v::Vector, i::Integer, x)
     v[i] = x
 end
 
-# Fermions and scalars share m.fields; SARAH numbers them separately
+# Fermions and scalars share m.fields; the model file numbers them separately
 function field_slot(m, kind, i)
     k = 0
     for (j, f) in enumerate(m.fields)
@@ -493,18 +493,18 @@ function field_slot(m, kind, i)
     return length(m.fields) + 1
 end
 
-function gauge_from_sarah(rhs)
+function gauge_entry(rhs)
     boson, group, name, coupling, expand, charges... = rhs.args
     kind, N = group.head === :U ? (:U1, 1) : (:SU, Int(group.args[1]))
     GaugeGroup(boson, kind, N, name, coupling, expand === :True, collect(Any, charges))
 end
 
-function global_from_sarah(rhs)
+function global_entry(rhs)
     kind, name = rhs.args
     kind.head === :Z ? GlobalSymmetry(:Z, Int(kind.args[1]), name) : GlobalSymmetry(:U1, 1, name)
 end
 
-function field_from_sarah(kind, rhs)
+function field_entry(kind, rhs)
     name, gen, comps, charges... = rhs.args
     conjugated = is_call(comps, :conj)
     list =
@@ -521,7 +521,7 @@ end
     Monomial
 
 One term `coefficient × parameters × fields` of an expanded Lagrangian piece.
-`fields` lists `(name, conjugated)` in the order of the SARAH `Dot` product.
+`fields` lists `(name, conjugated)` in the order of the `Dot` product.
 """
 struct Monomial
     coefficient::Any
@@ -686,14 +686,14 @@ function check_model(m::BSMModel)
         isempty(unknown) ||
         push!(
             warnings,
-            "parameters not in parameters.m (SARAH takes them from its general list): " *
+            "parameters not in parameters.m (no LaTeX name or LesHouches entry): " *
             join(sort!(collect(unknown)), ", "),
         )
     return ModelCheck(m.name, n_terms, problems, warnings)
 end
 
-# The charge of a field under symmetry k, conjugated if c. SARAH gives the
-# charges of the multiplet; a component of a multiplet entered as conj[...]
+# The charge of a field under symmetry k, conjugated if c. The model file gives
+# the charges of the multiplet; a component of a multiplet entered as conj[...]
 # (d = conj[dR]) has the conjugate charges.
 function field_charge(m, name, k, c)
     f = field_lookup(m, name)

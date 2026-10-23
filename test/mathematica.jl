@@ -14,7 +14,7 @@
     @test length(parse("a = 1\nb = 2;\nc = {1,\n 2}")) == 3
     @test str(only(parse("x \\[RightArrow] y"))) == "Rule[x, y]"
 
-    # SARAH-style entries
+    # Kind[[i]] entries
     @test str(only(parse("AdditionalTerms[[1]] = {Matter, A Diag[{1, 0, 0}]};"))) ==
           "Set[Part[AdditionalTerms, 1], {Matter, Times[A, Diag[{1, 0, 0}]]}]"
     # { } is a factor of a product
