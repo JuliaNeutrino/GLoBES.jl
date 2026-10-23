@@ -94,6 +94,10 @@ A neutrino oscillation model read from model files with
 the probability engine with [`use_model!`](@ref), make parameters with
 `OscParams(model; ...)` and compute [`hamiltonian`](@ref),
 [`effective_mixing`](@ref) and [`effective_masses`](@ref).
+
+```julia
+model = load_model("examples/models/SNSI")   # model.flavours, model.parameters, model.blocks
+```
 """
 mutable struct OscillationModel
     name::String
@@ -238,6 +242,12 @@ Read an oscillation model from a directory like a SARAH model:
 Any ingredient left out takes the default: the PDG mixing matrix, Δm² from
 NuFIT, the NH and IH hierarchies and the standard matter potential. An
 empty directory, or `load_model()`, is the standard three-flavour model.
+
+```julia
+model = load_model("examples/models/SNSI")   # directory with SNSI.m, parameters.m, particles.m, Run.m
+model = load_model("examples/models/SNSI/SNSI.m"; parameters = "examples/models/SNSI/parameters.m")   # the model file, the others by name
+standard = load_model()   # the standard three-flavour model
+```
 """
 function load_model(
     dir::AbstractString = "";
@@ -315,6 +325,10 @@ new_model(dir = "", files = Dict{Symbol, String}()) = OscillationModel(
 
 A model from source text instead of files (`src` as in the model file,
 `parameters` as in `parameters.m`).
+
+```julia
+liv = model_from_string("AdditionalTerms[[2]] = {LIV, c E Diag[{1, -1, 0}]};"; parameters = "ParameterDefinitions = {{c, {Value -> 0}}};")   # model file and parameters.m as text
+```
 """
 function model_from_string(src::AbstractString; parameters::AbstractString = "")
     m = new_model()
@@ -633,6 +647,10 @@ end
     model_parameters(model) -> Vector{ModelParameter}
 
 The parameters of a model with their defaults.
+
+```julia
+model_parameters(model)   # name, key in OscParams, default value, LaTeX name, unit and range of each parameter
+```
 """
 model_parameters(m::OscillationModel) = m.parameters
 
@@ -1063,6 +1081,10 @@ end
 
 The effective Hamiltonian of a model in eV, for neutrino energy `E` in GeV
 in matter of density `ρ` (g/cm³).
+
+```julia
+hamiltonian(model, OscParams(model; eta_etau = 0.1); E = 2.5, ρ = 2.848)   # model, parameters; energy in GeV, density in g/cm³
+```
 """
 function hamiltonian(
     m::OscillationModel,
@@ -1116,6 +1138,10 @@ The effective mixing matrix in matter: the eigenvectors of the
 Hamiltonian as columns, numbered like the vacuum mass eigenstates they
 evolve from as the density increases (levels do not cross, so θ̃12 → 90°
 above the solar resonance for neutrinos).
+
+```julia
+effective_mixing(model, OscParams(model); E = 2.5, ρ = 2.848)   # model, parameters; energy in GeV, density in g/cm³
+```
 """
 effective_mixing(m::OscillationModel, p::OscParams; kwargs...) =
     matter_eigensystem(m, p; kwargs...)[2]
@@ -1125,6 +1151,10 @@ effective_mixing(m::OscillationModel, p::OscParams; kwargs...) =
 
 The effective masses squared in eV²: 2E times the eigenvalues of the
 Hamiltonian, numbered like [`effective_mixing`](@ref).
+
+```julia
+effective_masses(model, OscParams(model); E = 2.5, ρ = 2.848, antineutrino = true)   # model, parameters; GeV, g/cm³: m̃² in eV²
+```
 """
 effective_masses(m::OscillationModel, p::OscParams; E::Real, kwargs...) =
     2E * 1e9 .* matter_eigensystem(m, p; E, kwargs...)[1]
@@ -1134,6 +1164,10 @@ effective_masses(m::OscillationModel, p::OscParams; E::Real, kwargs...) =
 
 The mixing angles, phase and mass splittings in matter (three flavours),
 from [`effective_mixing`](@ref) and [`effective_masses`](@ref).
+
+```julia
+q = effective_parameters(model, OscParams(model); E = 2.5, ρ = 2.848)   # θ̃12, θ̃13, θ̃23, δ̃ and Δm̃² in matter
+```
 """
 function effective_parameters(m::OscillationModel, p::OscParams; E::Real, kwargs...)
     nflavours(m) == 3 || throw(ArgumentError("effective parameters are defined for three flavours"))
@@ -1170,6 +1204,12 @@ end
 Oscillation probability of a model, also for more than three flavours
 (`from`, `to` are flavour names of the model or indices), without loading
 it as the probability engine.
+
+```julia
+model_probability(model, OscParams(model; eta_etau = 0.1), :mu, :e; E = 2.0, L = 1300, ρ = 2.848)   # model, parameters, from, to; GeV, km, g/cm³
+sterile = load_model("examples/models/Sterile")   # four flavours: e, mu, tau, s
+model_probability(sterile, OscParams(sterile), :mu, :s; E = 0.5:0.1:5, L = 1300)   # flavours by name, energies as a range
+```
 """
 function model_probability(
     m::OscillationModel,

@@ -14,6 +14,10 @@
 
 Create a new, empty setup: no experiments, the standard probability engine,
 the built-in χ² functions and priors.
+
+```julia
+far = Setup()   # a new setup: no experiments, independent of the default one
+```
 """
 function Setup()
     s = Setup(new_state())
@@ -25,6 +29,10 @@ end
     current_setup() -> Setup
 
 The setup that functions use when no `setup` keyword is given.
+
+```julia
+setup = current_setup()   # the setup that functions use when no setup keyword is given
+```
 """
 current_setup() = CURRENT_SETUP[]
 
@@ -35,11 +43,7 @@ Call `f()` with `setup` as the current setup, and restore the previous one
 afterwards. Setups are not thread-safe: use one setup per thread at a time.
 
 ```julia
-far = Setup()
-with_setup(far) do
-    Experiment("NOvA.glb"; BASELINE=1500)
-    simulate!(truth)
-end
+with_setup(() -> Experiment("NOvA.glb"; BASELINE = 1500), far)   # function to call, setup that is current while it runs
 ```
 """
 function with_setup(f, s::Setup)
@@ -103,10 +107,9 @@ Additional parameters of a user-defined probability engine go in `extra`, as
 a named tuple. The second form copies `p` with some parameters changed.
 
 ```julia
-truth = OscParams(θ12=asin(sqrt(0.307)), θ13=asin(sqrt(0.022)), θ23=asin(sqrt(0.55)),
-                  δ=1.2π, Δm21=7.4e-5, Δm31=2.5e-3)
-test = OscParams(truth; δ=0, Δm31=-2.4e-3)
-truth.θ23, truth.sin²θ23, truth.sin²2θ13
+truth = OscParams(θ12 = 0.584, θ13 = 0.149, θ23 = 0.738, δ = 1.2π, Δm21 = 7.4e-5, Δm31 = 2.5e-3)   # angles and δ in radians, Δm² in eV²
+test = OscParams(truth; δ = 0, Δm31 = -2.4e-3)   # a copy of truth with δ and Δm31 changed
+truth.sin²θ23, truth.sin²2θ13   # derived quantities, by name
 ```
 """
 struct OscParams
@@ -205,6 +208,10 @@ Base.propertynames(p::OscParams) = (PARAM_NAMES..., p.extra_names..., :ρ, keys(
 Copy of `p` with one parameter changed. `name` can also be one of
 `:sin²θ12`, `:sin²θ13`, `:sin²θ23`, `:sin²2θ12`, `:sin²2θ13`, `:sin²2θ23`
 (ASCII: `:sin2theta13`, `:sin22theta13`, ...), which sets the angle.
+
+```julia
+test = with_param(truth, :sin²2θ13, 0.08)   # parameters, name of the parameter, new value
+```
 """
 function with_param(p::OscParams, name::Symbol, value)
     name = canonical(name)
@@ -287,8 +294,8 @@ Load an experiment from an AEDL file and add it to the setup. Keyword
 arguments define AEDL variables used in the file, numbers or lists:
 
 ```julia
-nova = Experiment("NOvA.glb")
-nf = Experiment("NFvar.glb"; BASELINE=3000, emax=50)
+nova = Experiment("NOvA.glb")   # AEDL file, looked up in the current directory and in GLB_PATH
+nf = Experiment("NFvar.glb"; BASELINE = 3000, emax = 50)   # AEDL file, values of the AEDL variables it uses
 ```
 
 The file is looked up in the current directory and in the directories listed
@@ -312,6 +319,10 @@ end
     load_experiments(file; setup=current_setup(), variables...) -> Vector{Experiment}
 
 Load all experiments defined in an AEDL file; see [`Experiment`](@ref).
+
+```julia
+exps = load_experiments("NOvA.glb")   # AEDL file; one experiment for each part separated by #NEXT#
+```
 """
 function load_experiments(file::AbstractString; setup::Setup = current_setup(), variables...)
     in_setup(setup) do
@@ -337,6 +348,10 @@ end
     experiments(; setup=current_setup()) -> Vector{Experiment}
 
 All experiments of a setup, in the order they were loaded.
+
+```julia
+experiments()   # the experiments of the current setup, in the order they were loaded
+```
 """
 experiments(; setup::Setup = current_setup()) =
     [Experiment(setup, e) for e in setup.state.experiments]
@@ -345,6 +360,10 @@ experiments(; setup::Setup = current_setup()) =
     clear_experiments!(; setup=current_setup())
 
 Remove all experiments from a setup.
+
+```julia
+clear_experiments!()   # remove all experiments of the current setup
+```
 """
 clear_experiments!(; setup::Setup = current_setup()) =
     (in_setup(glbClearExperimentList, setup); nothing)
@@ -366,6 +385,10 @@ on(f, e::Experiment) = in_setup(() -> f(index(e)), e.setup)
     name(e::Experiment) -> String
 
 The name of the AEDL file the experiment was loaded from.
+
+```julia
+name(nova)   # "NOvA.glb"
+```
 """
 name(e::Experiment) = splitext(basename(e.data.filename))[1]
 
@@ -405,24 +428,41 @@ end
 
 Baseline in km. Changing it recomputes the matter density profile in the way
 the AEDL file defines it (average density, PREM layers, or rescaled layers).
+
+```julia
+baseline(nova)   # km
+baseline!(nova, 1300)   # experiment, new baseline in km
+```
 """
 baseline(e::Experiment) = e.data.baseline
 baseline!(e::Experiment, L::Real) = (on(i -> glbSetBaselineInExperiment(i, Float64(L)), e); e)
+@doc (@doc baseline) baseline!
 
 """
     target_mass(e) -> Float64
     target_mass!(e, mass)
 
 Fiducial detector mass in kt (the unit used in AEDL files).
+
+```julia
+target_mass(nova)   # kt
+target_mass!(nova, 30)   # experiment, new mass in kt
+```
 """
 target_mass(e::Experiment) = e.data.targetmass
 target_mass!(e::Experiment, m::Real) = (on(i -> glbSetTargetMass(i, Float64(m)), e); e)
+@doc (@doc target_mass) target_mass!
 
 """
     running_time(e; flux=1) -> Float64
     running_time!(e, years; flux=:all)
 
 Running time in years of one flux, or of all fluxes.
+
+```julia
+running_time(nova; flux = 2)   # years of the second flux
+running_time!(nova, 5)   # experiment, years, for all fluxes
+```
 """
 running_time(e::Experiment; flux::Integer = 1) = e.data.fluxes[flux].time
 function running_time!(e::Experiment, t::Real; flux = :all)
@@ -433,6 +473,7 @@ function running_time!(e::Experiment, t::Real; flux = :all)
     end
     return e
 end
+@doc (@doc running_time) running_time!
 
 """
     source_power(e; flux=1) -> Float64
@@ -440,6 +481,11 @@ end
 
 Source power (stored muons or ions per year, or beam power in MW; see the
 `@power` and `@stored_muons` entries of the AEDL file).
+
+```julia
+source_power(nova)   # beam power in MW, or stored muons or ions per year
+source_power!(nova, 1.2)   # experiment, new power, for all fluxes
+```
 """
 source_power(e::Experiment; flux::Integer = 1) = e.data.fluxes[flux].target_power
 function source_power!(e::Experiment, p::Real; flux = :all)
@@ -450,6 +496,7 @@ function source_power!(e::Experiment, p::Real; flux = :all)
     end
     return e
 end
+@doc (@doc source_power) source_power!
 
 """
     energy_range(e) -> (emin, emax)
@@ -457,10 +504,17 @@ end
     bin_widths(e) -> Vector{Float64}
 
 The reconstructed energy range and bins of an experiment, in GeV.
+
+```julia
+emin, emax = energy_range(nova)   # GeV
+bin_centers(nova), bin_widths(nova)   # the reconstructed energy bins in GeV
+```
 """
 energy_range(e::Experiment) = (e.data.emin, e.data.emax)
 bin_centers(e::Experiment) = copy(e.data.smear_data[1].bincenter)
 bin_widths(e::Experiment) = copy(e.data.smear_data[1].binsize)
+@doc (@doc energy_range) bin_centers
+@doc (@doc energy_range) bin_widths
 
 """
     density_profile(e) -> (lengths, densities)
@@ -468,6 +522,12 @@ bin_widths(e::Experiment) = copy(e.data.smear_data[1].binsize)
 
 The matter density profile: layers with lengths in km and densities in g/cm³.
 See also [`prem_profile`](@ref) and [`average_profile`](@ref).
+
+```julia
+lengths, densities = density_profile(nova)   # km, g/cm³
+density_profile!(nova, [baseline(nova)], [2.8])   # experiment, layer lengths in km, densities in g/cm³
+density_profile!(nova, prem_profile(baseline(nova), 10)...)   # ten layers of the PREM profile
+```
 """
 density_profile(e::Experiment) = (copy(e.data.lengthtab), copy(e.data.densitytab))
 function density_profile!(e::Experiment, lengths::AbstractVector, densities::AbstractVector)
@@ -476,6 +536,7 @@ function density_profile!(e::Experiment, lengths::AbstractVector, densities::Abs
     on(i -> glbSetProfileDataInExperiment(i, Float64.(lengths), Float64.(densities)), e)
     return e
 end
+@doc (@doc density_profile) density_profile!
 
 """
     prem_profile(L, layers) -> (lengths, densities)
@@ -483,6 +544,11 @@ end
 
 Matter density along a baseline of `L` km through the Earth (PREM): in
 `layers` steps of equal length, or a single layer with the average density.
+
+```julia
+prem_profile(7500, 20)   # baseline in km, number of layers
+average_profile(7500)   # baseline in km: one layer of the average density
+```
 """
 prem_profile(L::Real, layers::Integer) = glbStaceyProfile(Float64(L), layers)
 average_profile(L::Real) = glbAverageDensityProfile(Float64(L))
@@ -494,9 +560,14 @@ average_profile(L::Real) = glbAverageDensityProfile(Float64(L))
 
 Names of the rules and channels defined in the AEDL file, without the leading
 `#` (their numbers if they have no name).
+
+```julia
+rule_names(nova), channel_names(nova)   # names from the AEDL file
+```
 """
 rule_names(e::Experiment) = names_in(e, "rule", length(e.data.rules))
 channel_names(e::Experiment) = names_in(e, "channel", length(e.data.channels))
+@doc (@doc rule_names) channel_names
 
 function names_in(e::Experiment, context, n)
     out = string.(1:n)
@@ -532,6 +603,10 @@ end
 
 Compute the simulated ("true") event rates of all experiments for the
 oscillation parameters `truth`. Every χ² compares against these rates.
+
+```julia
+simulate!(truth)   # true parameters: the simulated data of all experiments
+```
 """
 function simulate!(truth::OscParams; setup::Setup = current_setup())
     in_setup(setup) do
@@ -548,6 +623,10 @@ end
     simulated_params(; setup=current_setup()) -> OscParams
 
 The parameters passed to the last [`simulate!`](@ref).
+
+```julia
+simulated_params()   # the parameters of the last simulate!
+```
 """
 function simulated_params(; setup::Setup = current_setup())
     g = setup.state.truth
@@ -565,6 +644,11 @@ Event rates of one rule per energy bin: those of the simulated data, or those
 predicted for `params`. Returns `(energy, width, signal, background, total)`;
 `total` is signal plus background (with the background normalisation of the
 rule) inside the rule's energy window and zero outside.
+
+```julia
+r = event_rates(nova; rule = 1)   # simulated rates of rule 1: r.energy, r.signal, r.background, r.total
+event_rates(nova, test; rule = 2)   # experiment, parameters to predict the rates for, rule
+```
 """
 function event_rates(e::Experiment; rule = 1)
     on(e) do i
@@ -615,6 +699,11 @@ end
     total_events(e, params; rule=1) -> Float64
 
 Number of events of one rule in its energy window, signal plus background.
+
+```julia
+total_events(nova; rule = 1)   # simulated events of rule 1
+total_events(nova, test; rule = 1)   # experiment, parameters, rule
+```
 """
 total_events(e::Experiment; rule = 1) = sum(event_rates(e; rule).total)
 total_events(e::Experiment, params::OscParams; rule = 1) = sum(event_rates(e, params; rule).total)
@@ -624,6 +713,10 @@ total_events(e::Experiment, params::OscParams; rule = 1) = sum(event_rates(e, pa
 
 Simulated event rates of one channel, after (`smeared=true`, per energy bin)
 or before energy smearing (per sampling point).
+
+```julia
+channel_rates(nova, 1; smeared = false)   # experiment, channel; per sampling point, before the energy smearing
+```
 """
 channel_rates(e::Experiment, channel; smeared::Bool = true) = on(
     i -> copy(glbGetChannelRatePtr(i, channel_index(e, channel), smeared ? GLB_POST : GLB_PRE)),
@@ -637,6 +730,10 @@ The predicted signal and background rates of the χ² evaluation in progress,
 without systematics. For use inside user-defined χ² functions (see
 [`define_chi2`](@ref)); `background` is not yet multiplied by the background
 normalisation. The vectors are the engine's buffers: do not modify them.
+
+```julia
+s, b = fit_rates(e; rule)   # inside a χ² function: predicted signal and background of the rule
+```
 """
 function fit_rates(e::Experiment; rule = 1)
     r = rule_index(e, rule)
@@ -648,6 +745,10 @@ end
 
 The simulated rates of a rule inside its energy window, signal plus
 background, as used by the χ² functions. The engine's buffer: do not modify.
+
+```julia
+data = true_rates(e; rule)   # inside a χ² function: the simulated events of the rule
+```
 """
 true_rates(e::Experiment; rule = 1) = e.data.rates0[rule_index(e, rule)]
 
@@ -657,6 +758,12 @@ true_rates(e::Experiment; rule = 1) = e.data.rates0[rule_index(e, rule)]
     energy_window_bins(e; rule=1) -> UnitRange
 
 The energy window of the analysis of a rule, in GeV, and the bins in it.
+
+```julia
+energy_window(nova; rule = 1)   # (emin, emax) in GeV
+energy_window!(nova, 1.0, 3.0; rule = 1)   # experiment, emin and emax in GeV, rule
+energy_window_bins(nova; rule = 1)   # the bins inside the window
+```
 """
 energy_window(e::Experiment; rule = 1) = Tuple(e.data.rules[rule_index(e, rule)].energy_window)
 function energy_window!(e::Experiment, lo::Real, hi::Real; rule = :all)
@@ -671,8 +778,10 @@ function energy_window!(e::Experiment, lo::Real, hi::Real; rule = :all)
     )
     return e
 end
+@doc (@doc energy_window) energy_window!
 energy_window_bins(e::Experiment; rule = 1) =
     (b = e.data.rules[rule_index(e, rule)].energy_window_bins; b[1]:b[2])
+@doc (@doc energy_window) energy_window_bins
 
 # ---------------------------------------------------------------------------
 #  Probabilities
@@ -693,8 +802,8 @@ Oscillation probability P(ν_from → ν_to) at neutrino energy `E` in GeV
 experiment. Flavours are `:e`, `:μ` (`:mu`), `:τ` (`:tau`) or 1, 2, 3.
 
 ```julia
-probability(truth, :μ, :e; E=2.0, L=1300, ρ=2.8)
-probability(truth, :μ, :e, dune; E=0.5:0.1:5, antineutrino=true)
+probability(truth, :μ, :e; E = 2.0, L = 1300, ρ = 2.8)   # parameters, from, to; energy in GeV, baseline in km, density in g/cm³
+probability(truth, :μ, :e, nova; E = 0.5:0.1:5, antineutrino = true)   # along the baseline and matter profile of an experiment
 ```
 """
 function probability(
@@ -758,6 +867,11 @@ the systematics (nuisance) parameters of each rule but not over oscillation
 parameters (`glbChiSys`). `experiment` is an [`Experiment`](@ref) or `:all`,
 `rule` a rule number or name or `:all`. `systematics=false` uses the rules'
 χ² functions without systematics (statistics only, by default).
+
+```julia
+chi2(test)   # Δχ² of all experiments, minimised over the systematics
+chi2(test; experiment = nova, rule = 1, systematics = false)   # one experiment, one rule, statistics only
+```
 """
 function chi2(
     test::OscParams;
@@ -800,6 +914,10 @@ check_simulated() =
 Result of [`marginalize`](@ref): `chi2` is the minimum, `params` the
 parameters at the minimum, `free` the parameters that were fitted and
 `iterations` the number of χ² evaluations.
+
+```julia
+fit = marginalize(test)   # fit.chi2, fit.params, fit.free, fit.iterations
+```
 """
 struct FitResult
     chi2::Float64
@@ -837,8 +955,8 @@ others fixed at their values in `test` ("projection" in the GLoBES manual).
 * `experiment`: fit one experiment only.
 
 ```julia
-r = marginalize(OscParams(truth; δ=0); fixed=(:θ13, :δ), priors=(θ12=0.1truth.θ12, ρ=0.05))
-r.chi2, r.params.θ23
+fit = marginalize(test; fixed = (:θ13, :δ), priors = (θ12 = 0.1truth.θ12, ρ = 0.05))   # start, parameters kept fixed, 1σ Gaussian priors
+fit.chi2, fit.params.θ23   # the minimum and the fitted θ23
 ```
 """
 function marginalize(
@@ -937,6 +1055,10 @@ end
 `:nested` (default): Powell's method over the oscillation parameters, with the
 systematics minimised separately for every rule at each step. `:hybrid`: one
 Powell minimisation over oscillation and systematics parameters together.
+
+```julia
+minimizer!(:hybrid)   # :nested (the default) or :hybrid
+```
 """
 function minimizer!(kind::Symbol; setup::Setup = current_setup())
     id =
@@ -963,8 +1085,9 @@ it is also minimised over oscillation parameters ([`marginalize`](@ref)),
 with the scanned parameters always fixed. The matrix has `length(xs)` rows.
 
 ```julia
-grid = chi2_scan(truth, :sin²2θ13 => range(0.07, 0.11, 41), :δ => range(0, 2π, 61))
-proj = chi2_scan(truth, :δ => range(0, 2π, 61); fixed=(:θ12, :Δm21), priors=(ρ=0.05,))
+chi2_scan(truth, :δ => range(0, 2π, 61))   # base parameters, scanned parameter => values
+grid = chi2_scan(truth, :sin²2θ13 => range(0.07, 0.11, 41), :δ => range(0, 2π, 61))   # two parameters: a matrix
+chi2_scan(truth, :δ => range(0, 2π, 61); fixed = (:θ12, :Δm21), priors = (ρ = 0.05,))   # also minimised over the other parameters
 ```
 """
 function chi2_scan(base::OscParams, x::Pair{Symbol}; kwargs...)
@@ -1016,6 +1139,11 @@ end
 
 Switch the systematics of rules on or off. With systematics off, a rule uses
 its `@sys_off_function` (no nuisance parameters, by default).
+
+```julia
+systematics!(nova, false; rule = 1)   # experiment, on or off, rule
+systematics!(true)   # all rules of all experiments
+```
 """
 function systematics!(e::Experiment, on_::Bool; rule = :all)
     on(
@@ -1040,6 +1168,11 @@ changing it. `errors` are the widths of the priors of its nuisance
 parameters. Built in: `"chiSpectrumTilt"`, `"chiSpectrumCalib"`,
 `"chiSpectrumOnly"`, `"chiTotalRatesTilt"`, `"chiNoSysSpectrum"`,
 `"chiNoSysTotalRates"`, `"chiZero"`; others with [`define_chi2`](@ref).
+
+```julia
+chi2_function(nova; rule = 1)   # the name of the χ² function of rule 1
+chi2_function!(nova, "chiTotalRatesTilt"; rule = 1, errors = [0.05, 0.01, 0.1, 0.01])   # experiment, χ² function, rule, prior widths of its nuisance parameters
+```
 """
 chi2_function(e::Experiment; rule = 1, systematics::Bool = true) =
     on(i -> glbGetChiFunction(i, rule_index(e, rule), systematics ? GLB_ON : GLB_OFF), e)
@@ -1070,6 +1203,11 @@ end
     systematic_errors!(e, errors; rule=:all, systematics=true)
 
 Prior widths of the nuisance parameters of a rule's χ² function.
+
+```julia
+systematic_errors(nova; rule = 1)   # prior widths of the nuisance parameters of rule 1
+systematic_errors!(nova, [0.05, 0.01, 0.1, 0.01]; rule = 1)   # experiment, new widths, rule
+```
 """
 systematic_errors(e::Experiment; rule = 1, systematics::Bool = true) =
     on(i -> copy(glbGetSysErrorsListPtr(i, rule_index(e, rule), systematics ? GLB_ON : GLB_OFF)), e)
@@ -1085,6 +1223,7 @@ function systematic_errors!(e::Experiment, errors; rule = :all, systematics::Boo
     )
     return e
 end
+@doc (@doc systematic_errors) systematic_errors!
 
 """
     define_chi2(f, name, n_params; setup=current_setup())
@@ -1096,12 +1235,9 @@ widths `errors`, and returns χ² including the priors of `x`. Inside, use
 [`true_rates`](@ref) and [`fit_rates`](@ref), and [`poisson_chi2`](@ref).
 
 ```julia
-define_chi2("normOnly", 1) do e, rule, x, errors
-    data = true_rates(e; rule)
-    s, b = fit_rates(e; rule)
-    sum(poisson_chi2(data[i], (1 + x[1]) * (s[i] + b[i])) for i in energy_window_bins(e; rule)) +
-        (x[1] / errors[1])^2
-end
+norm_only(e, rule, x, errors) = sum(poisson_chi2(true_rates(e; rule)[i], (1 + x[1]) * sum(fit_rates(e; rule))[i]) for i in energy_window_bins(e; rule)) + (x[1] / errors[1])^2   # χ² with one normalisation error x[1]
+define_chi2(norm_only, "normOnly", 1)   # function, name for AEDL files and chi2_function!, number of nuisance parameters
+chi2_function!(nova, "normOnly"; errors = [0.05])   # use it for all rules of an experiment
 ```
 """
 function define_chi2(f, name::AbstractString, n_params::Integer; setup::Setup = current_setup())
@@ -1118,6 +1254,10 @@ end
 The Poisson log-likelihood χ², `2(predicted - observed + observed log(observed/predicted))`,
 of one bin, with the treatment of empty bins and vanishing predictions
 described in the manual.
+
+```julia
+poisson_chi2(12, 10.5)   # observed events, predicted events
+```
 """
 poisson_chi2(observed::Real, predicted::Real) =
     glb_likelihood(Float64(observed), Float64(predicted))
@@ -1128,6 +1268,10 @@ poisson_chi2(observed::Real, predicted::Real) =
 Rates of a binned spectrum after an energy calibration error `b` (the true
 energy is `(1+b)` times the reconstructed one). See the manual for the
 method.
+
+```julia
+energy_scale_shift(event_rates(nova).total, 0.02; centers = bin_centers(nova), widths = bin_widths(nova))   # binned rates, calibration error b; bins in GeV
+```
 """
 energy_scale_shift(
     rates::AbstractVector,
@@ -1158,6 +1302,11 @@ of layers with `lengths` in km and `densities` in g/cm³.
 
 Experiments loaded before the change keep working. Create `OscParams` with
 `extra=(σE=0.0,)` to set the additional parameters.
+
+```julia
+probability_engine!((P, params, E, anti, lengths, densities) -> (P .= (1:3) .== (1:3)'), ())   # P! fills P[from, to] (here: no oscillations), no extra parameters
+standard_engine!()   # back to three-flavour oscillations in matter
+```
 """
 function probability_engine!(P!, extra = (); setup::Setup = current_setup())
     names = collect(Symbol, extra)
@@ -1184,6 +1333,7 @@ function standard_engine!(; setup::Setup = current_setup())
     end
     return nothing
 end
+@doc (@doc probability_engine!) standard_engine!
 
 # Simulated data of the old engine no longer fit the parameter vectors
 resize_params!() = (state().truth = nothing)
@@ -1197,6 +1347,10 @@ resize_params!() = (state().truth = nothing)
 
 Neutrino flux of an experiment at energy `E` in GeV and distance `L` in km,
 in the units of the flux tables (see the manual).
+
+```julia
+flux(nova, 2.0; flavour = :μ)   # experiment, energy in GeV; the ν_μ flux of the first flux table
+```
 """
 flux(
     e::Experiment,
@@ -1216,6 +1370,10 @@ flux(
 Total cross section per target nucleon, in 10⁻³⁸ cm², of the cross section
 table `xsec` of an experiment at energy `E` in GeV. (The tables hold the cross
 section divided by energy, σ/E.)
+
+```julia
+cross_section(nova, 2.0; flavour = :μ)   # experiment, energy in GeV; in 10⁻³⁸ cm² per nucleon
+```
 """
 cross_section(e::Experiment, E::Real; xsec::Integer = 1, flavour = :e, antineutrino::Bool = false) =
     on(i -> glbXSection(i, xsec, Float64(E), GLoBES.flavour(flavour), antineutrino ? -1 : +1), e)

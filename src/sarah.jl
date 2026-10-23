@@ -101,6 +101,10 @@ end
 An empty model; add blocks with [`add_gauge!`](@ref), [`add_global!`](@ref),
 [`add_fermion!`](@ref), [`add_scalar!`](@ref), [`add_lagrangian!`](@ref),
 [`add_vevs!`](@ref) and [`add_parameter!`](@ref).
+
+```julia
+m = BSMModel("Scotogenic"; authors = "A. Physicist")   # name, then LaTeX name, authors and date
+```
 """
 BSMModel(name::AbstractString; latex = name, authors = "", date = "") = BSMModel(
     String(name),
@@ -176,8 +180,9 @@ Add a gauge group: `group` is `:U1`, or `(:SU, N)`. Like SARAH's
 `Gauge[[i]] = {boson, group, name, coupling, expand, charge}`.
 
 ```julia
-add_gauge!(m, :B, :U1, :hypercharge, :g1)
-add_gauge!(m, :WB, (:SU, 2), :left, :g2; expand=true)
+add_gauge!(m, :B, :U1, :hypercharge, :g1)   # model, gauge boson, group, name of the group, coupling
+add_gauge!(m, :WB, (:SU, 2), :left, :g2; expand = true)   # SU(2), with its indices expanded in expressions
+add_gauge!(m, :G, (:SU, 3), :color, :g3)   # SU(3)
 ```
 """
 function add_gauge!(m::BSMModel, boson, group, name, coupling; expand = false, charge = 1)
@@ -194,6 +199,11 @@ end
     add_global!(model, name; U1=true)
 
 Add a global Z_N or U(1) symmetry.
+
+```julia
+add_global!(m, :Z2; Z = 2)   # model, name, a Z_N symmetry with N = 2
+add_global!(m, :Lepton; U1 = true)   # a global U(1)
+```
 """
 function add_global!(m::BSMModel, name; Z = 2, U1 = false)
     push!(
@@ -213,9 +223,11 @@ symmetry. `conjugated=true` marks right-handed fields entered as their
 conjugates, like SARAH's `conj[dR]`.
 
 ```julia
-add_fermion!(m, :l, 3, (:vL, :eL), -1//2, 2, 1, 1)
-add_fermion!(m, :e, 3, :eR, 1, 1, 1, 1; conjugated=true)
-add_scalar!(m, :H, 1, (:Hp, :H0), 1//2, 2, 1, 1)
+add_fermion!(m, :l, 3, (:vL, :eL), -1 // 2, 2, 1, 1)   # model, name, generations, SU(2) components, hypercharge, SU(2) and SU(3) dimensions, Z2 charge
+add_fermion!(m, :e, 3, :eR, 1, 1, 1, 1; conjugated = true)   # a right-handed field, entered as conj[eR]
+add_fermion!(m, :n, 3, :nR, 0, 1, 1, -1; conjugated = true)   # the Z2-odd singlet fermions
+add_scalar!(m, :H, 1, (:Hp, :H0), 1 // 2, 2, 1, 1)   # the Higgs doublet, entries as for fermions
+add_scalar!(m, :Et, 1, (:etp, :et0), 1 // 2, 2, 1, -1)   # the Z2-odd inert doublet
 ```
 """
 add_fermion!(m::BSMModel, name, generations, components, charges...; conjugated = false) =
@@ -239,8 +251,9 @@ end
 Add a piece of the Lagrangian, written in SARAH's syntax:
 
 ```julia
-add_lagrangian!(m, :LagFer, "Ye conj[H].e.l + Yn Et.n.l"; hc=true)
-add_lagrangian!(m, :LagHEtHC, "-(1/2 lambda5 conj[H].Et.conj[H].Et)"; hc=true)
+add_lagrangian!(m, :LagFer, "Ye conj[H].e.l + Yn Et.n.l"; hc = true)   # model, name, terms in SARAH's syntax, add the Hermitian conjugate
+add_lagrangian!(m, :LagNV, "Mn/2 n.n"; hc = true)   # Majorana masses of the singlet fermions
+add_lagrangian!(m, :LagH, "-(-mH2 conj[H].H + 1/2 lambda1 conj[H].H.conj[H].H)")   # self-conjugate: no Hermitian conjugate
 ```
 """
 function add_lagrangian!(m::BSMModel, name, expr; hc = false)
@@ -257,8 +270,7 @@ Decompose neutral scalars after electroweak symmetry breaking, like SARAH's
 `DEFINITION[EWSB][VEVs]`. Coefficients are numbers or SARAH expressions:
 
 ```julia
-add_vevs!(m, (:H0, :v, (:Ah, "I/Sqrt[2]"), (:hh, "1/Sqrt[2]")),
-             (:et0, 0, (:etI, "I/Sqrt[2]"), (:etR, "1/Sqrt[2]")))
+add_vevs!(m, (:H0, :v, (:Ah, "I/Sqrt[2]"), (:hh, "1/Sqrt[2]")), (:et0, 0, (:etI, "I/Sqrt[2]"), (:etR, "1/Sqrt[2]")))   # model, then (neutral component, vev, (CP-odd state, coefficient), (CP-even state, coefficient)) for each
 ```
 """
 function add_vevs!(m::BSMModel, entries...)
@@ -288,6 +300,11 @@ end
 LaTeX name, description and LesHouches position (`(:HDM, 1)` for an entry,
 `:YN` for a matrix block) of a parameter, like a line of SARAH's
 `parameters.m`.
+
+```julia
+add_parameter!(m, :Yn; description = "Yukawa of the singlet fermions", leshouches = :YN)   # model, name; description, LesHouches block
+add_parameter!(m, :lambda5; leshouches = (:HDM, 5))   # an entry of a LesHouches block
+```
 """
 function add_parameter!(m::BSMModel, name; kwargs...)
     info = get!(m.parameter_info, Symbol(name), Dict{Symbol, Any}())
@@ -312,8 +329,8 @@ directory (which must contain `<name>.m`, or exactly one other model file)
 or the main file itself.
 
 ```julia
-scoto = load_sarah("~/scoto/Scotogenic.m")
-check_model(scoto)          # gauge and Z₂ invariance of every term
+scoto = load_sarah("Scotogenic/")   # model directory with Scotogenic.m and particles.m, parameters.m, SPheno.m
+scoto = load_sarah("Scotogenic/Scotogenic.m"; spheno = "Scotogenic/SPheno.m")   # the model file, the others by name
 ```
 """
 function load_sarah(
@@ -605,6 +622,10 @@ Check every term of the Lagrangian: the sum of U(1) charges vanishes, the
 SU(N) representations can form a singlet (their N-alities add up to zero
 mod N), the global Z_N or U(1) charges are conserved, each term has 0 or 2
 fermions and mass dimension at most 4.
+
+```julia
+c = check_model(scoto)   # c.problems: terms that break a gauge or global symmetry; c.warnings
+```
 """
 function check_model(m::BSMModel)
     problems, warnings = String[], String[]

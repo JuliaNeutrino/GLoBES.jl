@@ -8,6 +8,10 @@
 The range of P(ν_from → ν_to) at each energy when parameter `name` takes
 all `values` (for example a phase over [0, 2π]): the envelope drawn as a
 band in plots.
+
+```julia
+lo, hi = probability_band(nsi, :μ, :e, :δ_eτ => range(0, 2π, 37); E = range(0.5, 10, 200), L = 1300, ρ = 2.848)   # parameters, from, to, parameter => values; GeV, km, g/cm³
+```
 """
 function probability_band(params::OscParams, from, to, scan::Pair{Symbol}; kwargs...)
     curves =
@@ -48,6 +52,11 @@ each true δ_CP in `δ_true` (radians), the other true parameters as in
 `truth`. The test ordering has Δm²31 → -Δm²31 + Δm²21 (the same |Δm²32|),
 and χ² is minimised over `free` from several starting points (both θ23
 octants, four δ). Load the experiments into `setup` first.
+
+```julia
+σ = mass_ordering_sensitivity(nufit_params("6.1"), range(-π, π, 21))   # true parameters, true δ_CP values: √Δχ² of the wrong ordering
+σ = mass_ordering_sensitivity(truth, range(-π, π, 21); free = (:θ23, :δ, :Δm31), priors = nufit_priors(nufit("6.1")))   # fitted parameters, priors
+```
 """
 function mass_ordering_sensitivity(
     truth::OscParams,
@@ -72,7 +81,12 @@ end
 
 The significance √Δχ² with which CP conservation (δ = 0 or π) is excluded,
 for each true δ_CP in `δ_true`, minimised over `free` and, with
-`orderings=:both`, over both mass orderings.
+`orderings=:both`, over both mass orderings (`:same` for the true one only).
+
+```julia
+σ = cp_violation_sensitivity(truth, range(-π, π, 21))   # true parameters, true δ_CP values: √Δχ² of δ = 0 and π
+σ = cp_violation_sensitivity(truth, range(-π, π, 21); orderings = :same)   # only the true mass ordering
+```
 """
 function cp_violation_sensitivity(
     truth::OscParams,
@@ -113,6 +127,10 @@ end
 parameters (`test` with `name` set to each value) are fitted over `free`.
 For example the sensitivity to a new-physics coupling, with the data
 simulated without it.
+
+```julia
+χ² = chi2_profile(nsi, :η_eτ => range(-0.1, 0.1, 21); free = (:θ23, :δ, :Δm31))   # true parameters, scanned parameter => values, fitted parameters
+```
 """
 function chi2_profile(
     truth::OscParams,
@@ -152,8 +170,8 @@ P(ν_from → ν_to) against energy. Each curve is `label => params`, each band
 keywords go to Plots. Needs `using Plots`.
 
 ```julia
-plot_probability("SM" => sm, "η_eτ = 0.1" => nsi; E=range(0.5, 20, 400), L=1300, ρ=2.848,
-                 bands=("|η_eτ| = 0.1, δ_eτ ∈ [0, 2π]" => (nsi, :δ_eτ => range(0, 2π, 37)),))
+plot_probability("SM" => sm, "η_eτ = 0.1" => nsi; E = range(0.5, 20, 400), L = 1300, ρ = 2.848)   # label => parameters; GeV, km, g/cm³
+plot_probability("NSI" => nsi; E = range(0.5, 20, 400), L = 1300, ρ = 2.848, bands = ("δ_eτ ∈ [0, 2π]" => (nsi, :δ_eτ => range(0, 2π, 37)),))   # band: label => (parameters, parameter => values)
 ```
 """
 function plot_probability end
@@ -163,6 +181,10 @@ function plot_probability end
 
 Event spectra of a rule as histograms, one for each `label => params`.
 Needs `using Plots`.
+
+```julia
+plot_events(nova, "SM" => sm, "NSI" => nsi; rule = 1)   # experiment, label => parameters, rule
+```
 """
 function plot_events end
 
@@ -171,6 +193,10 @@ function plot_events end
 
 Lines for `label => y` (sensitivities against δ_CP, Δχ² profiles, ...), in
 the paper style. Needs `using Plots`.
+
+```julia
+plot_curves(δs ./ π, "NH" => σ_nh, "IH" => σ_ih; xlabel = "δ_CP/π", ylabel = "σ", markers = true)   # x, label => y, axis labels
+```
 """
 function plot_curves end
 
@@ -179,6 +205,11 @@ function plot_curves end
 
 Confidence regions of a two-parameter Δχ² (2 degrees of freedom by
 default). Needs `using Plots`.
+
+```julia
+plot_contour(range(0.07, 0.11, 41), range(0, 2π, 61), grid)   # x, y, Δχ² matrix from chi2_scan: 1σ, 2σ and 3σ
+plot_contour(range(0.07, 0.11, 41), range(0, 2π, 61), grid; levels = (4.61,), labels = ("90% CL",))   # other levels
+```
 """
 function plot_contour end
 
@@ -187,6 +218,11 @@ function plot_contour end
 
 A NuFIT Δχ² projection: one parameter (a profile) or two (contours).
 Needs `using Plots`.
+
+```julia
+plot_nufit(nufit_chi2("6.1"), :θ23)   # Δχ² tables, one parameter: a profile
+plot_nufit(nufit_chi2("6.1"; full = true), :θ23, :δ)   # two parameters: contours
+```
 """
 function plot_nufit end
 
@@ -196,6 +232,10 @@ function plot_nufit end
 Arrange plots in a grid with a title, column titles and row titles, like
 the multi-panel figures of papers. `panels` is a matrix of plots. Needs
 `using Plots`.
+
+```julia
+plot_grid([p1 p2; p3 p4]; title = "P(νμ → νe)", column_titles = ("NH", "IH"), row_titles = ("ν", "ν̄"))   # matrix of plots, titles
+```
 """
 function plot_grid end
 
@@ -205,5 +245,9 @@ function plot_grid end
 Plots defaults for publication figures: framed axes with ticks inside and
 on all sides, minor ticks, a faint grid and LaTeX-like fonts. Needs
 `using Plots`.
+
+```julia
+paper_theme!()   # Plots defaults for journal figures, for all plots that follow
+```
 """
 function paper_theme! end

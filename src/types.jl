@@ -142,6 +142,10 @@ Rule() = Rule(
 
 Everything GLoBES knows about one experiment: what the AEDL file defined,
 the precomputed smearing matrices, and the rate buffers. Indices are 1-based.
+
+```julia
+nova.data   # the ExperimentData of an Experiment; glbGetExperiment(1) for the glb* functions
+```
 """
 mutable struct ExperimentData
     version::Union{Nothing, String}
@@ -271,6 +275,10 @@ Base.show(io::IO, e::ExperimentData) = print(
 Oscillation parameters (`osc`, length = number of oscillation parameters,
 6 for the standard engine), matter density scaling factors (`density`, one per
 experiment), and the iteration count of the last minimization.
+
+```julia
+p = glbAllocParams()   # parameters for the glb* functions: p.osc and p.density
+```
 """
 mutable struct GlbParams
     osc::Vector{Float64}
@@ -283,6 +291,10 @@ end
 
 Marks every oscillation parameter and density scaling as `GLB_FREE` or
 `GLB_FIXED` for the χ² projections.
+
+```julia
+proj = glbAllocProjection()   # GLB_FREE or GLB_FIXED for each parameter, for glbChiNP
+```
 """
 mutable struct GlbProjection
     osc::Vector{Int}
