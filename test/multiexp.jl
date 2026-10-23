@@ -2,16 +2,19 @@
 # (sys groups and chiMultiExp), tables of any length and emin = 0. The
 # numbers come from C GLoBES 3.2.18, see reference/dune_reference.c.
 
-# The data tables of the DUNE configuration are not in git (see
-# examples/DUNE/README.md); without them the test is skipped.
-dune_dir = joinpath(@__DIR__, "..", "examples", "DUNE")
-if !isfile(joinpath(dune_dir, "xsec", "xsec_cc.dat"))
-    @info "DUNE data tables not found in examples/DUNE: skipping the DUNE tests"
-else
+# The data tables of the DUNE configuration are downloaded from arXiv by
+# dune_configuration(); without network access the test is skipped.
+dune_file = try
+    dune_configuration()
+catch e
+    @info "Could not download the DUNE data tables: skipping the DUNE tests" exception = e
+    nothing
+end
+if dune_file !== nothing
     @testset "DUNE (GLoBES 3.2 systematics)" begin
         s = Setup()
         with_setup(s) do
-            dune = cd(() -> Experiment("DUNE_GLoBES.glb"), dune_dir)
+            dune = Experiment(dune_file)
             @test rule_names(dune) == ["nue_app", "nuebar_app", "numu_dis", "numubar_dis"]
             @test dune.data.sys_errors["#err_nutau_bg"] == 0.2
             @test dune.data.rules[1].multiex_bg[5] == ["#err_nutau_bg"]

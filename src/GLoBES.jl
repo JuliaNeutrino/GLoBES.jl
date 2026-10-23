@@ -25,6 +25,7 @@ using Printf
 using SpecialFunctions: erf
 import Downloads
 import p7zip_jll
+import SHA
 
 const GLB_VERSION = "3.0.11"
 
@@ -141,16 +142,17 @@ function glb_setup_path!()
 end
 
 """
-    glb_find_file(name, extra_dir=nothing) -> path or nothing
+    glb_find_file(name, extra_dirs...) -> path or nothing
 
 Locate a data file like GLoBES does: absolute path, then the current
-directory and the `GLB_PATH` directories. `extra_dir` (the directory of the
-including AEDL file) is tried after the current directory.
+directory and the `GLB_PATH` directories. `extra_dirs` (the directories of
+the including AEDL file and of the main AEDL file) are tried after the
+current directory.
 """
-function glb_find_file(name::AbstractString, extra_dir = nothing)
+function glb_find_file(name::AbstractString, extra_dirs...)
     isabspath(name) && return isfile(name) ? String(name) : nothing
     dirs = String[pwd()]
-    extra_dir !== nothing && push!(dirs, extra_dir)
+    append!(dirs, (d for d in extra_dirs if d !== nothing))
     append!(dirs, glb_path_vector)
     for d in dirs
         f = joinpath(d, name)
@@ -266,6 +268,7 @@ include("spectrum.jl")
 include("mechanisms.jl")
 include("newphysics.jl")
 include("nufit.jl")
+include("dune.jl")
 include("oscmodel.jl")
 include("latex.jl")
 include("analysis.jl")
@@ -408,6 +411,7 @@ export BSMModel,
     nufit_chi2,
     nufit_prior,
     nufit_download,
+    dune_configuration,
     OscillationModel,
     load_model,
     model_from_string,

@@ -62,7 +62,12 @@ end
 
 Tokenize an AEDL file, splicing in `include "file"` directives.
 """
-function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::AbstractString = path)
+function aedl_tokenize(
+    path::AbstractString;
+    depth::Int = 0,
+    display_name::AbstractString = path,
+    root::AbstractString = dirname(abspath(path)),
+)
     depth > MAX_INCLUDE_DEPTH && throw(AEDLError("Includes nested too deeply"))
     s = collect(read(path, String))
     n = length(s)
@@ -103,11 +108,11 @@ function aedl_tokenize(path::AbstractString; depth::Int = 0, display_name::Abstr
             i = j + 1
             if !isempty(toks) && toks[end].kind == :ident && toks[end].text == "include"
                 pop!(toks)
-                incpath = glb_find_file(str, dirname(path))
+                incpath = glb_find_file(str, dirname(path), root)
                 incpath === nothing && throw(
                     AEDLError("Could not open include file \"$str\" ($display_name:$(line[]))"),
                 )
-                inc = aedl_tokenize(incpath; depth = depth + 1, display_name = str)
+                inc = aedl_tokenize(incpath; depth = depth + 1, display_name = str, root)
                 inc[end].kind == :eof && pop!(inc)
                 append!(toks, inc)
             else
@@ -526,11 +531,12 @@ function expect_string!(p::AEDLParser)
 end
 
 # A data file named in an AEDL file: like include files, it is looked up in
-# the current directory, then next to the AEDL file, then in GLB_PATH.
+# the current directory, then next to the AEDL file and the main AEDL file,
+# then in GLB_PATH.
 function expect_data_file!(p::AEDLParser)
     t = peek(p)
     name = expect_string!(p)
-    path = glb_find_file(name, t.dir)
+    path = glb_find_file(name, t.dir, dirname(abspath(p.filename)))
     return path === nothing ? name : path
 end
 
