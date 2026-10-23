@@ -444,3 +444,18 @@ function power(a, b)
     a isa MNumber && b isa MNumber && return float(a)^b
     return MExpr(:Power, a, b)
 end
+
+# √ and log of a negative number are complex
+complex_if_negative(x::Real) = x < 0 ? complex(x) : x
+complex_if_negative(x) = x
+
+# Rules {A->x, B->y} as a Dict; option names like PDG.IX are joined with dots
+function options(list)
+    d = Dict{Symbol, Any}()
+    for r in (list isa MExpr && list.head === :List ? list.args : Any[list])
+        is_call(r, :Rule) || continue
+        key = r.args[1] isa Symbol ? r.args[1] : Symbol(join(string.(r.args[1].args), "."))
+        d[key] = r.args[2]
+    end
+    return d
+end

@@ -263,9 +263,6 @@ include("minimize.jl")
 include("api.jl")
 include("highlevel.jl")
 include("mathematica.jl")
-include("particlemodel.jl")
-include("spectrum.jl")
-include("mechanisms.jl")
 include("newphysics.jl")
 include("nufit.jl")
 include("dune.jl")
@@ -375,30 +372,8 @@ export Setup,
     cross_section
 
 # Models, NuFIT, reports
-export BSMModel,
-    load_particle_model,
-    check_model,
-    add_gauge!,
-    add_global!,
-    add_fermion!,
-    add_scalar!,
-    add_lagrangian!,
-    add_vevs!,
-    add_parameter!,
-    spectrum,
-    read_leshouches,
-    leshouches_values,
-    write_leshouches,
-    ScotogenicLoop,
-    TypeISeesaw,
-    neutrino_mass_matrix,
-    neutrino_spectrum,
-    casas_ibarra,
-    orthogonal_matrix,
-    pmns_matrix,
+export pmns_matrix,
     light_masses,
-    br_lfv,
-    scotogenic_masses,
     NewPhysics,
     ScalarNSI,
     MatterNSI,
