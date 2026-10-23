@@ -79,6 +79,15 @@ const GLB_NAN = NaN
 #  Error handling
 # ---------------------------------------------------------------------------
 
+"""
+    GLoBESError
+
+An error of a GLoBES.jl function: an impossible request or a missing experiment.
+
+```julia
+simulated_params(; setup = Setup())   # throws a GLoBESError: nothing is simulated in a new setup
+```
+"""
 struct GLoBESError <: Exception
     msg::String
 end

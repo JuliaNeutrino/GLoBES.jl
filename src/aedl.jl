@@ -5,6 +5,15 @@
 # `rule(#name)< ... >` etc., `$global` and `@local` directives, user variables,
 # `%lists`, `include "file"`, `#NEXT#` separators and the built-in functions.
 
+"""
+    AEDLError
+
+An error in an AEDL file, with the file and line in its message.
+
+```julia
+Experiment("broken.glb")   # throws an AEDLError that points to the mistake
+```
+"""
 struct AEDLError <: Exception
     msg::String
 end

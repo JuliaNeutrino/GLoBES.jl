@@ -51,6 +51,12 @@ off the diagonal, the phase `δ_αβ`.
 
 Scalar NSI depend on the absolute neutrino masses: the parameter
 `m_lightest` (eV, default 0) is the lightest mass.
+
+```julia
+ScalarNSI(:eτ)   # one coupling: parameters η_eτ and δ_eτ
+ScalarNSI(:ee, :eμ; scale = 0.05)   # couplings; δM in units of 0.05 eV instead of √|Δm²31|
+ScalarNSI()   # all six couplings
+```
 """
 struct ScalarNSI <: PropagationBlock
     pairs::Vector{Tuple{Int, Int}}
@@ -65,6 +71,10 @@ end
 Neutral-current (vector) non-standard interactions with matter, H ∋ V ε,
 in units of the standard matter potential V = √2 G_F N_e. Parameters
 `ε_αβ` and, off the diagonal, the phase `δε_αβ`.
+
+```julia
+MatterNSI(:ee, :eτ)   # couplings: parameters ε_ee, ε_eτ and δε_eτ
+```
 """
 struct MatterNSI <: PropagationBlock
     pairs::Vector{Tuple{Int, Int}}
@@ -78,6 +88,11 @@ Quantum decoherence: the coherence between the propagation eigenstates i, j
 decays as exp(-Γ_ij (E/E₀)ⁿ L), with Γ in GeV and E₀ in GeV. One parameter
 `Γ` for all pairs, or `Γ21`, `Γ31`, `Γ32` with `pairs=true` (the eigenstates
 of the Hamiltonian in matter, numbered by increasing eigenvalue).
+
+```julia
+Decoherence()   # one Γ for all pairs, independent of the energy
+Decoherence(n = 2, pairs = true)   # Γ21, Γ31 and Γ32, times (E/E0)² with E0 = 1 GeV
+```
 """
 Base.@kwdef struct Decoherence <: PropagationBlock
     n::Float64 = 0.0
@@ -121,10 +136,10 @@ as the probability engine with [`use_model!`](@ref) and make parameters with
 `OscParams(model; ...)`:
 
 ```julia
-model = NewPhysics(ScalarNSI(:eτ), Decoherence(n=0))
-use_model!(model)
-truth = OscParams(model, nufit_params("6.1"); η_eτ=0.1, Γ=1e-23)
-probability(truth, :μ, :e; E=2.5, L=1300, ρ=2.848)
+model = NewPhysics(ScalarNSI(:eτ), Decoherence(n = 0))   # blocks of new physics
+use_model!(model)   # the probability engine from now on
+nsi = OscParams(model, nufit_params("6.1"); η_eτ = 0.1, Γ = 1e-23)   # model, standard parameters, new-physics parameters
+probability(nsi, :μ, :e; E = 2.5, L = 1300, ρ = 2.848)
 ```
 """
 struct NewPhysics
@@ -156,6 +171,11 @@ parameter_names(m::NewPhysics) = m.names
 
 Oscillation parameters for a [`NewPhysics`](@ref) model: the standard ones
 and the model's parameters (all zero unless given).
+
+```julia
+OscParams(model; θ12 = 0.584, θ13 = 0.149, θ23 = 0.738, δ = 1.2π, Δm21 = 7.4e-5, Δm31 = 2.5e-3, η_eτ = 0.1)   # model, all parameters by name
+OscParams(model, nufit_params("6.1"); η_eτ = 0.1)   # model, standard parameters, new-physics parameters (0 unless given)
+```
 """
 function OscParams(m::NewPhysics; kwargs...)
     kw = Dict(canonical(k) => v for (k, v) in kwargs)
@@ -334,6 +354,12 @@ end
 
 Use the oscillation probabilities of `model` from now on (in `setup`), for
 all experiments. `standard_engine!` switches back (see [`probability_engine!`](@ref)).
+
+```julia
+use_model!(NewPhysics(MatterNSI(:eτ)))   # model: its probabilities for all experiments of the setup
+use_model!(load_model("examples/models/SNSI"))   # a model from files
+standard_engine!()   # back to the standard engine
+```
 """
 function use_model!(m::NewPhysics; setup::Setup = current_setup())
     eng = NewPhysicsEngine(m)

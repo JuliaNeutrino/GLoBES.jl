@@ -228,9 +228,9 @@ by their SARAH names. The parameters in `tadpoles` (by default SARAH's
 `ParametersToSolveTadpoles`) are solved from the minimum conditions.
 
 ```julia
-values = Dict(:v => 246.22, :lambda1 => 0.26, :lambda2 => 0.1, :lambda3 => 0.2,
-              :lambda4 => -0.1, :lambda5 => 1e-9, :mEt2 => 1e6, :Mn => Diagonal([1e3, 2e3, 3e3]))
-spectrum(scoto, values)
+values = Dict(:v => 246.22, :lambda1 => 0.26, :lambda2 => 0.1, :lambda3 => 0.2, :lambda4 => -0.1, :lambda5 => 1e-9, :mEt2 => 1e6, :Mn => Diagonal([1e3, 2e3, 3e3]))   # parameters by SARAH name, in GeV
+s = spectrum(scoto, values; tadpoles = [:mH2])   # model, values, parameters fixed by the minimum conditions
+s.scalars, s.fermions, s.tadpoles   # masses in GeV and the solved parameters
 ```
 """
 function spectrum(m::BSMModel, values; tadpoles = nothing)
@@ -298,6 +298,10 @@ mass(s::Spectrum, name::Symbol) = last(s.scalars[findfirst(p -> p.first === name
 
 The blocks of a LesHouches (SLHA) file: block name ⇒ (indices ⇒ value), with
 `IM<name>` blocks merged into the imaginary parts.
+
+```julia
+blocks = read_leshouches("LesHouches.in")   # file: blocks["MINPAR"], blocks["YN"], ...
+```
 """
 function read_leshouches(file::AbstractString)
     blocks = Dict{String, Dict{Tuple, Any}}()
@@ -335,6 +339,10 @@ end
 Parameter values from a LesHouches file, at the positions that
 `parameters.m` gives (`LesHouches -> {HDM, 1}` or `LesHouches -> YN`), and
 from `MINPAR` through `BoundaryLowScaleInput` of `SPheno.m`.
+
+```julia
+values = leshouches_values(scoto, "LesHouches.in")   # model, LesHouches file: parameter values by SARAH name
+```
 """
 function leshouches_values(m::BSMModel, file::AbstractString)
     blocks = read_leshouches(file)
@@ -376,6 +384,10 @@ end
 Write parameter values to a LesHouches input file in the blocks of
 `parameters.m` and `SPheno.m` (`MINPAR`), for SPheno or for
 [`leshouches_values`](@ref).
+
+```julia
+write_leshouches("LesHouches.in", scoto, values)   # file, model, parameter values by SARAH name
+```
 """
 function write_leshouches(file::AbstractString, m::BSMModel, values)
     vals = Dict{Symbol, Any}(Symbol(k) => v for (k, v) in pairs(values))

@@ -34,6 +34,11 @@ one loop of the Z₂-odd singlet fermions N_k and the inert doublet η,
 
 with m_R,I² = m_η² + (λ₃ + λ₄ ± λ₅) v²/2. The keywords are the names of the
 parameters in the model values, by default those of the SARAH model file.
+
+```julia
+mech = ScotogenicLoop()   # parameter names as in SARAH's scotogenic model
+mech = ScotogenicLoop(yukawa = :Y, majorana = :MN)   # other names for the Yukawa matrix and the Majorana masses
+```
 """
 Base.@kwdef struct ScotogenicLoop <: NeutrinoMassMechanism
     yukawa::Symbol = :Yn
@@ -49,6 +54,11 @@ end
     TypeISeesaw(; yukawa=:Yv, majorana=:Mn, v=:v)
 
 Type-I seesaw: Mν = -(v²/2) Yᵀ M⁻¹ Y for heavy Majorana masses M.
+
+```julia
+mech = TypeISeesaw()   # Yukawa matrix :Yv, Majorana masses :Mn, vev :v
+neutrino_mass_matrix(mech, Dict(:Yv => [1e-6 0 0; 0 2e-6 0; 0 0 3e-6], :Mn => [1e10, 2e10, 3e10], :v => 246.22))   # mechanism, values in GeV: Mν in eV
+```
 """
 Base.@kwdef struct TypeISeesaw <: NeutrinoMassMechanism
     yukawa::Symbol = :Yv
@@ -81,6 +91,10 @@ end
 
 Masses in GeV of the neutral CP-even and CP-odd and of the charged inert
 scalars: m_R,I² = m_η² + (λ₃ + λ₄ ± λ₅)v²/2, m_η+² = m_η² + λ₃v²/2.
+
+```julia
+scotogenic_masses(ScotogenicLoop(), values)   # mechanism, parameter values: (mR, mI, mηp) in GeV
+```
 """
 function scotogenic_masses(mech::ScotogenicLoop, values)
     v = vev(mech, values)
@@ -128,6 +142,10 @@ end
     neutrino_mass_matrix(mechanism, values) -> Matrix{ComplexF64}
 
 The light neutrino mass matrix Mν = Yᵀ Λ Y in eV.
+
+```julia
+Mν = neutrino_mass_matrix(ScotogenicLoop(), values)   # mechanism, parameter values: Mν in eV
+```
 """
 function neutrino_mass_matrix(mech::NeutrinoMassMechanism, values)
     Y = ComplexF64.(param(values, mech.yukawa))
@@ -192,6 +210,12 @@ Masses, mixing angles and phases of a light neutrino mass matrix in eV
 (Mν = U* diag(m) U†). The mass states are numbered as usual: m₁ < m₂ with
 the smaller splitting between them, so that Δm²31 < 0 means inverted
 ordering. Phases are in [0, 2π).
+
+```julia
+s = neutrino_spectrum(Mν)   # light neutrino mass matrix in eV
+s = neutrino_spectrum(ScotogenicLoop(), values)   # mechanism, parameter values
+s.params, s.m, s.ordering, s.mββ, s.Σm   # oscillation parameters, masses and observables in eV
+```
 """
 neutrino_spectrum(mech::NeutrinoMassMechanism, values) =
     neutrino_spectrum(neutrino_mass_matrix(mech, values))
@@ -244,6 +268,10 @@ end
     pmns_matrix(params; majorana_phases=(0, 0)) -> Matrix{ComplexF64}
 
 The PMNS matrix in the PDG parametrisation, times diag(1, e^{iα21/2}, e^{iα31/2}).
+
+```julia
+U = pmns_matrix(nufit_params("6.1"); majorana_phases = (0, π / 2))   # oscillation parameters, (α21, α31)
+```
 """
 function pmns_matrix(p::OscParams; majorana_phases = (0.0, 0.0))
     s12, c12 = sincos(p.θ12)
@@ -263,6 +291,10 @@ end
 
 m₁, m₂, m₃ in eV from Δm²21, Δm²31 and the lightest mass (m₁ for normal,
 m₃ for inverted ordering).
+
+```julia
+light_masses(nufit_params("6.1"); lightest = 0.01)   # oscillation parameters, lightest mass in eV: [m1, m2, m3]
+```
 """
 function light_masses(p::OscParams; lightest::Real = 0.0)
     if p.Δm31 > 0
@@ -279,6 +311,10 @@ end
 
 A complex orthogonal matrix R (RᵀR = 1), the product of rotations by the
 complex angles z1, z2, z3 in the 23, 13 and 12 planes.
+
+```julia
+R = orthogonal_matrix(0.1, 0.2 + 0.1im, 0)   # complex angles in the 23, 13 and 12 planes
+```
 """
 function orthogonal_matrix(z1, z2, z3)
     rot(i, j, z) = (
@@ -301,11 +337,11 @@ hep-ph/0103065; Toma and Vicente, arXiv:1312.2840 for the scotogenic model).
 orthogonal matrix (see [`orthogonal_matrix`](@ref)).
 
 ```julia
-mech = ScotogenicLoop()
-values = Dict(:Mn => [1e3, 2e3, 3e3], :mEt2 => 1e6, :lambda3 => 0.1, :lambda4 => 0.1, :lambda5 => 1e-9)
-values[:Yn] = casas_ibarra(mech, values, nufit_params("6.1"); lightest=1e-3)
-neutrino_spectrum(mech, values)     # reproduces NuFIT
-br_lfv(mech, values, :μ, :e)        # BR(μ → eγ)
+mech = ScotogenicLoop()   # the mechanism, with SARAH's parameter names
+values = Dict(:Mn => [1e3, 2e3, 3e3], :mEt2 => 1e6, :lambda3 => 0.1, :lambda4 => 0.1, :lambda5 => 1e-9, :v => 246.22)   # the other parameters, in GeV
+values[:Yn] = casas_ibarra(mech, values, nufit_params("6.1"); lightest = 1e-3)   # mechanism, values, oscillation parameters to reproduce, lightest mass in eV
+values[:Yn] = casas_ibarra(mech, values, nufit_params("6.1"); R = orthogonal_matrix(0.3, 0, 0))   # with a complex orthogonal matrix
+neutrino_spectrum(mech, values).params   # reproduces NuFIT
 ```
 """
 function casas_ibarra(
@@ -339,6 +375,11 @@ arXiv:1312.2840):
     BR = 3α/(64π G_F² m_η+⁴) |Σ_k Y_k,to* Y_k,from F₂(M_k²/m_η+²)|² BR(ℓ_from → ℓ_to ν ν̄).
 
 The MEG II limit on BR(μ → eγ) is `GLoBES.MEG_LIMIT` = 1.5 × 10⁻¹³.
+
+```julia
+br_lfv(ScotogenicLoop(), values, :μ, :e)   # mechanism, values with the Yukawa matrix, from, to: BR(μ → eγ)
+br_lfv(ScotogenicLoop(), values, :τ, :μ)   # BR(τ → μγ)
+```
 """
 function br_lfv(mech::ScotogenicLoop, values, from = :μ, to = :e)
     a, b = flavour(from), flavour(to)

@@ -63,6 +63,10 @@ const GREEK_LETTERS = Set([
 LaTeX for a model-file expression. `names` maps symbols to their LaTeX
 (parameter names, fields); other symbols are guessed (`theta12` → θ₁₂,
 `eta_etau` → η_eτ).
+
+```julia
+latex_expression("Sqrt[Abs[dm31]] eta_etau")   # an expression in the Wolfram language
+```
 """
 latex_expression(e; names = Dict{Symbol, String}()) = tex(e, names, 0)
 
@@ -217,6 +221,11 @@ latex_number(z::Complex; digits = 4) =
 LaTeX for a GLoBES.jl object: a matrix or number, `OscParams`, `NuFit`,
 `FitResult`, `OscillationModel`, `BSMModel`, `ModelCheck`, `Spectrum`,
 `NeutrinoSpectrum`, or a model-file expression.
+
+```julia
+latex(nufit("6.1"))   # NuFIT tables, fit results, OscParams, spectra, matrices and numbers
+latex([1 2; 3 4])   # a matrix
+```
 """
 latex(x::Number; digits = 4) = latex_number(x; digits)
 latex(e::MExpr; names = Dict{Symbol, String}()) = latex_expression(e; names)
@@ -346,6 +355,10 @@ particle_latex_guess(n::Symbol) = guess_symbol_latex(n)
     latex_table(header, rows; caption="", label="") -> String
 
 A booktabs table; cells are LaTeX strings.
+
+```julia
+latex_table(["Parameter", "Value"], [["θ12", "33.7°"], ["θ13", "8.6°"]]; caption = "Best fit")   # header, rows, caption
+```
 """
 function latex_table(header, rows; caption = "", label = "")
     io = IOBuffer()
@@ -403,6 +416,10 @@ const MODEL_SECTIONS = (
 The model in LaTeX: one subsection per block, the composed Hamiltonian and
 the parameters. Switch parts off with `Parameters=false` etc.; the parts
 are $(join(MODEL_SECTIONS, ", ")).
+
+```julia
+latex(load_model("examples/models/SNSI"); Parameters = false, NuFit = false)   # model; parts switched off by name
+```
 """
 function latex(m::OscillationModel; kwargs...)
     on(k) = get(kwargs, k, true)
@@ -576,6 +593,10 @@ end
 
 The particle content (with charges), the Lagrangian with LaTeX names from
 `particles.m` and `parameters.m`, and the result of [`check_model`](@ref).
+
+```julia
+latex(scoto; Check = false)   # model; parts switched off by name
+```
 """
 function latex(m::BSMModel; kwargs...)
     on(k) = get(kwargs, k, true)
@@ -649,13 +670,11 @@ A LaTeX document assembled from parts: text, sections, objects
 and figures. Write it with [`write_tex`](@ref).
 
 ```julia
-r = TexReport("SNSI at DUNE"; author="A. Physicist")
-add!(r, model)                                # all sections of the model
-add!(r, model; Parameters=false)              # without the parameter table
-section!(r, "Results")
-add!(r, "The \$\\Delta\\chi^2\$ minimum is at ...")
-figure!(r, "pmue.pdf"; caption="P(ν_μ → ν_e) at 1300 km")
-write_tex("report.tex", r; compile=true)
+r = TexReport("SNSI at DUNE"; author = "A. Physicist")   # title, author, date
+add!(r, load_model("examples/models/SNSI"); Parameters = false)   # report, object, options of latex
+section!(r, "Results")   # report, section title
+figure!(r, "pmue.pdf"; caption = "P(ν_μ → ν_e) at 1300 km")   # report, file, caption
+write_tex("report.tex", r; compile = true)   # file, report, run pdflatex
 ```
 """
 mutable struct TexReport
@@ -679,18 +698,31 @@ TexReport(title::AbstractString = "GLoBES.jl results"; author = "", date = "\\to
 
 Append LaTeX to a report: a string is added as it is; other objects as
 `latex(x; options...)`.
+
+```julia
+add!(r, "Text of a paragraph.")   # report, LaTeX text
+add!(r, nufit("6.1"))   # report, any object that latex knows
+```
 """
 add!(r::TexReport, s::AbstractString) = (push!(r.parts, String(s)); r)
 add!(r::TexReport, x; kwargs...) = (push!(r.parts, latex(x; kwargs...)); r)
 
 """
     section!(report, title; level=1)
+
+```julia
+section!(r, "Results"; level = 2)   # report, title, 1 for a section and 2 for a subsection
+```
 """
 section!(r::TexReport, title::AbstractString; level::Integer = 1) =
     add!(r, "\\" * ("sub"^(level - 1)) * "section{" * title * "}\n")
 
 """
     figure!(report, file; caption="", width="0.8\\textwidth")
+
+```julia
+figure!(r, "pmue.pdf"; caption = "Appearance probability")   # report, file, caption
+```
 """
 function figure!(
     r::TexReport,
@@ -709,6 +741,10 @@ end
     table!(report, header, rows; caption="")
 
 A table of strings or numbers.
+
+```julia
+table!(r, ["δ_CP", "σ"], [["0", "0.1"], ["π/2", "5.2"]]; caption = "CP violation")   # report, header, rows, caption
+```
 """
 table!(r::TexReport, header, rows; caption = "") = add!(
     r,
@@ -724,6 +760,10 @@ table!(r::TexReport, header, rows; caption = "") = add!(
 
 Write the report as a complete LaTeX document. `compile=true` runs
 `latexmk` or `pdflatex` if one is installed.
+
+```julia
+write_tex("report.tex", r; compile = true)   # file, report, run pdflatex
+```
 """
 function write_tex(file::AbstractString, r::TexReport; compile::Bool = false)
     open(file, "w") do io
@@ -751,6 +791,10 @@ end
 
 Run `latexmk -pdf` (or `pdflatex` twice) on a LaTeX file in its directory.
 Returns `false` if no LaTeX is installed.
+
+```julia
+compile_tex("report.tex")   # file: true if pdflatex succeeded
+```
 """
 function compile_tex(file::AbstractString)
     dir, name = dirname(abspath(file)), basename(file)

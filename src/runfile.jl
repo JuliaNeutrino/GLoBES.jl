@@ -18,6 +18,10 @@
 What [`run_model`](@ref) did: the `model`, the results of `Calculate`
 entries (`calculations`), of `Fit` entries (`fits`), the figure files
 (`figures`) and the LaTeX file (`tex`, or `nothing`).
+
+```julia
+r = run_model("examples/models/SNSI")   # r.calculations, r.fits, r.figures, r.tex
+```
 """
 struct ModelRun
     model::OscillationModel
@@ -51,6 +55,11 @@ file: its `Calculate[[i]]`, `Plot[[i]]`, `Fit[[i]]`, `LaTeX[[i]]` entries
 and `Print[...]` statements in the order of the file.
 Output files go to `output`. Plot entries need `using Plots` (with
 `plots=false` they are skipped).
+
+```julia
+run_model("examples/models/SNSI")   # model directory: runs its Run.m, the output goes next to it
+run_model("examples/models/SNSI"; output = "results", plots = false)   # output directory, skip the Plot entries
+```
 """
 function run_model(dir::AbstractString; run = nothing, output = nothing, plots::Bool = true)
     m = load_model(dir)

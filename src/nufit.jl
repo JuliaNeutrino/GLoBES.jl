@@ -186,9 +186,8 @@ two); `sk=true` selects the analysis with the Super-Kamiokande atmospheric
 χ² table.
 
 ```julia
-nf = nufit("6.1")
-nf.s23            # (best = 0.47, plus = 0.017, minus = 0.014, lo = 0.432, hi = 0.587)
-nufit_params(nf)  # the best fit as OscParams
+nf = nufit("6.1"; ordering = :normal)   # version, ordering (:normal, :inverted or :best); sk = true with SK atmospheric data
+nf.s23   # (best = 0.47, plus = 0.017, minus = 0.014, lo = 0.432, hi = 0.587)
 ```
 """
 function nufit(version::AbstractString = NUFIT_LATEST; ordering::Symbol = :best, sk::Bool = false)
@@ -266,6 +265,11 @@ end
 
 The NuFIT best fit as oscillation parameters (Δm²31 = Δm²32 + Δm²21 for
 inverted ordering).
+
+```julia
+truth = nufit_params("6.1"; ordering = :inverted)   # version, ordering: the best fit as OscParams
+truth = nufit_params(nufit("6.1"))   # from a NuFIT table
+```
 """
 nufit_params(version::AbstractString = NUFIT_LATEST; kwargs...) =
     nufit_params(nufit(version; kwargs...))
@@ -290,6 +294,10 @@ Gaussian 1σ errors (the mean of the + and − errors) for the `priors` of
 [`marginalize`](@ref), in radians and eV². The Gaussian is good for θ12, θ13
 and the mass splittings; for θ23 and δ use [`nufit_prior`](@ref) with the
 Δχ² tables instead.
+
+```julia
+priors = nufit_priors(nufit("6.1"); params = (:θ12, :θ13, :Δm21))   # NuFIT table, parameters: 1σ errors for marginalize
+```
 """
 function nufit_priors(nf::NuFit; params = (:θ12, :θ13, :Δm21))
     σ(v) = (v.plus + v.minus) / 2
@@ -309,6 +317,10 @@ end
 
 The 1σ or 3σ ranges `(lo, hi)` of the parameters, in radians and eV², for
 scan limits.
+
+```julia
+nufit_ranges(nufit("6.1"); sigma = 3)   # NuFIT table, 1 or 3: the range of each parameter
+```
 """
 function nufit_ranges(nf::NuFit; sigma::Integer = 3)
     sigma in (1, 3) || throw(ArgumentError("NuFIT publishes 1σ and 3σ ranges"))
@@ -373,6 +385,12 @@ Load the NuFIT Δχ² tables. The one-dimensional projections of NuFIT 6.0 and
 (about 4 MB each) with the two- and three-dimensional projections from
 www.nu-fit.org and keeps them in the Julia depot. `files` reads your own
 copies instead: a pair `(normal, inverted)` of paths, `.txt` or `.txt.xz`.
+
+```julia
+t = nufit_chi2("6.1")   # version: the one-dimensional Δχ² projections that come with GLoBES.jl
+t = nufit_chi2("6.1"; full = true)   # download the full tables, with two- and three-dimensional projections
+x, χ² = t[:δ]   # a projection: sin²θ, δ in degrees, Δm² in eV²
+```
 """
 function nufit_chi2(
     version::AbstractString = NUFIT_LATEST;
@@ -418,6 +436,10 @@ nufit_cache() =
 
 Download (once) and unpack a NuFIT release file; returns the path of the
 text file.
+
+```julia
+nufit_download("6.1"; ordering = :inverted)   # version, ordering: the path of the downloaded table
+```
 """
 function nufit_download(
     version::AbstractString = NUFIT_LATEST;
@@ -586,8 +608,8 @@ A prior for [`marginalize`](@ref)'s `prior` keyword: the NuFIT Δχ² of the
 parameters in `use` (see `NuFitChi2`), relative to its minimum.
 
 ```julia
-t = nufit_chi2("6.1")
-marginalize(test; fixed=(:δ,), prior=nufit_prior(t; use=(:θ12, :θ13, :Δm21, :θ23)))
+t = nufit_chi2("6.1")   # the NuFIT Δχ² tables
+marginalize(test; fixed = (:δ,), prior = nufit_prior(t; use = (:θ12, :θ13, :Δm21, :θ23)))   # parameters whose NuFIT Δχ² is added
 ```
 """
 function nufit_prior(t::NuFitChi2; use = (:θ12, :θ13, :Δm21))
