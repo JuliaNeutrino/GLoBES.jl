@@ -23,14 +23,14 @@ on:
         required: false
         type: boolean
         default: false
-    secrets:
-      codecov_token:
-        required: true
 
 jobs:
   test:
     name: Julia ${{ inputs.version }} - ${{ inputs.os }} - ${{ inputs.arch }} - ${{ github.event_name }}
     runs-on: ${{ inputs.os }}
+    permissions:
+      contents: read
+      id-token: write # Codecov upload with OpenID Connect, no token secret
     continue-on-error: ${{ inputs.allow_failure }}
 
     steps:
@@ -50,5 +50,5 @@ jobs:
       - uses: codecov/codecov-action@v7
         if: ${{ inputs.run_codecov }}
         with:
-          file: lcov.info
-          token: ${{ secrets.codecov_token }}
+          files: lcov.info
+          use_oidc: true
