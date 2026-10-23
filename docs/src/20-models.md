@@ -1,13 +1,13 @@
 # [Oscillation models](@id oscillation-models)
 
 Like SARAH for particle models, GLoBES.jl reads oscillation models from files.
-The effective Hamiltonian is the vacuum Hamiltonian plus additional terms, and each ingredient is a block that takes its default when it is left out or left blank.
+The effective Hamiltonian is the vacuum Hamiltonian plus additional terms; each ingredient is one assignment and takes its default when it is left out.
 
 ## Files
 
 ```text
 MyModel/
-  MyModel.m      the model: blocks for the mixing matrix, masses and additional terms
+  MyModel.m      the model: the mixing matrix, masses and additional terms
   parameters.m   parameter values (NuFIT by default), LaTeX names, units, ranges
   particles.m    optional: Flavours = {e, mu, tau, s}
   Run.m          what to calculate, plot, fit and write to LaTeX
@@ -16,22 +16,25 @@ MyModel/
 [`load_model`](@ref) reads the model, [`run_model`](@ref) executes `Run.m`.
 `examples/models` has the scalar NSI with decoherence (`SNSI`) and a 3+1 sterile neutrino (`Sterile`).
 
-## Blocks
+## Model files
+
+Model files are written like SARAH model files: one assignment per ingredient, with a comment that explains each entry.
 
 ```mathematica
-MixingMatrix[Vacuum]{ U = R23 . Ud . R13 . Conj[Ud] . R12 }      (* the default *)
-MixingMatrix[R23 . R13 . R12]{ R13 = IdentityMatrix[] }          (* the definition in brackets *)
-MassSquared[Vacuum]{ M2 = Diag[{0, dm21, dm31}] }                 (* the default *)
-MassHierarchy[NH]{ m1 = mlightest, m2 = Sqrt[m1^2 + dm21], m3 = Sqrt[m1^2 + dm31] }
-MassMatrix[Vacuum]{ M = U . Diag[{m1, m2, m3}] . Dagger[U] + Sqrt[Abs[dm31]] eta }
-AdditionalTerms[Matter]{ H = A Diag[{1, 0, 0}] }                  (* the default *)
-AdditionalTerms[LIV]{ H = c E Diag[{1, -1, 0}] }
-Decoherence[Lindblad]{ Gamma = Gamma0 (E/GeV)^n }
+Model`Name = "MyModel";                                             (* name, NameLaTeX, Authors, Date *)
+MixingMatrix = R23 . Ud . R13 . Conj[Ud] . R12;                     (* the default *)
+MassSquared = Diag[{0, dm21, dm31}];                                (* the default *)
+MassHierarchy[[1]] = {NH, {m1 -> mlightest, m2 -> Sqrt[m1^2 + dm21], m3 -> Sqrt[m1^2 + dm31]}};  (* {name, masses} *)
+MassMatrix = U . Diag[{m1, m2, m3}] . Dagger[U] + Sqrt[Abs[dm31]] eta;
+AdditionalTerms[[1]] = {Matter, A Diag[{1, 0, 0}]};                 (* {name, matrix}: the default *)
+AdditionalTerms[[2]] = {LIV, c E Diag[{1, -1, 0}]};
+Decoherence = Gamma0 (E/GeV)^n;
 ```
 
-The Hamiltonian is M M†/2E with a `MassMatrix`, or U M² U†/2E without one, plus all `AdditionalTerms`; a `Hamiltonian{ H = ... }` block replaces it.
-Definitions inside a block are local to it and override the defaults (`R12`, `R13`, `R23`, `Ud = PhaseMatrix[3, deltaCP]`, `PMNS`); a blank block (`MixingMatrix[Vacuum]{ }`) takes the default.
-`MassHierarchy[Name]` blocks define masses; `Hierarchy = Name` in the model selects one, otherwise NH or IH follows the sign of `dm31`.
+The Hamiltonian is M M†/2E with a `MassMatrix`, or U M² U†/2E without one, plus all `AdditionalTerms`; `Hamiltonian = ...;` replaces it.
+Ingredients that are left out take the defaults above; the built-in `R12`, `R13`, `R23`, `Ud = PhaseMatrix[3, deltaCP]` and `PMNS` can be redefined (`R13 = IdentityMatrix[];`).
+An entry with the name of a default replaces it, and `AdditionalTerms[[1]] = {Matter, Off};` removes the matter potential.
+`Hierarchy = NH;` selects a `MassHierarchy`; otherwise NH or IH follows the sign of `dm31`.
 
 Everything is in eV: `E` is the energy, `A` the matter potential, `L` the layer length; `GeV`, `MeV`, `km` and `Degree` are units.
 For antineutrinos H → H* with A → -A.
@@ -54,18 +57,16 @@ Matter eigenstates are numbered like the vacuum states they evolve into as the d
 
 ## Run files
 
+`Run.m` is written like SARAH's `SPheno.m`: settings, then entries `{name, {options}}` that run in the order of the file.
+
 ```mathematica
 L = 1300 km;
 rho = 2.848;
-
-Calculate[EffectiveMixingMatrix]{ E = 2.5 GeV, Parameters = {eta_etau -> 0.1} }
-Plot[Pmue]{ Type = Probability, E = Range[0.5, 10, 0.025],
-            Curves = {"SM" -> {}, "eta_etau = 0.1" -> {eta_etau -> 0.1}},
-            Band = {"delta_etau" -> {eta_etau -> 0.1, delta_etau -> Range[0, 2 Pi, Pi/18]}} }
-Fit[Eta]{ Experiment = "DUNE.glb", Scan = {eta_etau -> Range[-0.1, 0.1, 0.01]},
-          Free = {theta23, deltaCP, dm31}, Priors = NuFit, Output = "eta.dat" }
-LaTeX["results.tex"]{ Title = "...", NuFit = Off Print["Text added to the document."] }
+Calculate[[1]] = {EffectiveMixingMatrix, {E -> 2.5 GeV, Parameters -> {eta_etau -> 0.1}}};
+Plot[[1]] = {Pmue, {Type -> Probability, E -> Range[0.5, 10, 0.025], Curves -> {"SM" -> {}, "NSI" -> {eta_etau -> 0.1}}}};
+Fit[[1]] = {Eta, {Experiment -> "DUNE.glb", Scan -> {eta_etau -> Range[-0.1, 0.1, 0.01]}, Free -> {theta23, deltaCP, dm31}, Priors -> NuFit}};
+LaTeX[[1]] = {"results.tex", {Title -> "...", NuFit -> Off, Text -> {"Text added to the document."}}};
 ```
 
-`Calculate` takes `EffectiveMixingMatrix`, `EffectiveMasses`, `EffectiveParameters`, `Hamiltonian`, `MixingMatrix` and `Probability`; `Fit` takes `Type = Scan`, `MassOrdering` or `CPViolation`; `Plot` needs `using Plots`.
-The LaTeX file has a section per model block, the parameters and the results; `Model`, `Hamiltonian`, `Definitions`, `Parameters`, `NuFit`, the block kinds, `Results`, `Fits` and `Figures` switch parts `On` or `Off`.
+`Calculate` takes `EffectiveMixingMatrix`, `EffectiveMasses`, `EffectiveParameters`, `Hamiltonian`, `MixingMatrix` and `Probability`; `Fit` takes `Type -> Scan`, `MassOrdering` or `CPViolation`; `Plot` needs `using Plots` and takes `Band -> {label -> rules with one Range}`, `File` and `Caption`.
+The LaTeX file has a section per model ingredient, the parameters and the results; `Model`, `Hamiltonian`, `Definitions`, `Parameters`, `NuFit`, the ingredients, `Results`, `Fits` and `Figures` switch parts `On` or `Off`, and `Text` holds paragraphs and `Section["title"]`.

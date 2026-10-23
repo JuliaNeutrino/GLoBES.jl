@@ -14,20 +14,10 @@
     @test length(parse("a = 1\nb = 2;\nc = {1,\n 2}")) == 3
     @test str(only(parse("x \\[RightArrow] y"))) == "Rule[x, y]"
 
-    # Blocks: Head[...]{ ... } and Sym{ ... } without a space before {
-    b = only(
-        parse("MixingMatrix[R12 . R23]{ R12 = Diag[{1, 1, 1}]\n R23 = Rotation[2, 3, theta23] }"),
-    )
-    @test b.head === :Block && str(b.args[1]) == "MixingMatrix[Dot[R12, R23]]"
-    @test length(b.args) == 3 && str(b.args[3]) == "Set[R23, Rotation[2, 3, theta23]]"
-    b = only(parse("LaTeX[\"out.tex\"]{ X = Off Print[\"hello\"] Y = On }"))
-    @test b.head === :Block && length(b.args) == 4
-    @test str(b.args[2]) == "Set[X, Off]" &&
-          str(b.args[3]) == "Print[\"hello\"]" &&
-          str(b.args[4]) == "Set[Y, On]"
-    b = only(parse("Hamiltonian{ H = A }"))
-    @test b.head === :Block && b.args[1] === :Hamiltonian
-    # With a space, { } is a factor of a product
+    # SARAH-style entries
+    @test str(only(parse("AdditionalTerms[[1]] = {Matter, A Diag[{1, 0, 0}]};"))) ==
+          "Set[Part[AdditionalTerms, 1], {Matter, Times[A, Diag[{1, 0, 0}]]}]"
+    # { } is a factor of a product
     @test str(only(parse("ZW = 1/Sqrt[2] {{1, 1}, {I, -I}}"))) ==
           "Set[ZW, Times[Power[Sqrt[2], -1], {{1, 1}, {I, Times[-1, I]}}]]"
     @test only(parse("eta_etau")) === :eta_etau

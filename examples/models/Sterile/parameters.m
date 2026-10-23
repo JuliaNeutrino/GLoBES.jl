@@ -1,3 +1,6 @@
+(* Parameter values of the 3+1 model; the standard parameters come from NuFIT. *)
+(* Each entry: {name, {options}}: Value, LaTeX, Range, Unit, Description *)
+
 ParameterDefinitions = {
     {theta14, {Value -> 0.1, LaTeX -> "\\theta_{14}", Range -> {0, 0.5}}},
     {theta24, {Value -> 0.1, LaTeX -> "\\theta_{24}", Range -> {0, 0.5}}},

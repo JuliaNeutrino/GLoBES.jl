@@ -1,12 +1,13 @@
 # The control file of a model directory (Run.m): what to calculate, plot,
-# fit and write to LaTeX.
+# fit and write to LaTeX, written like SARAH's SPheno.m. Each entry is
+# {name, {options}} and the entries run in the order of the file.
 #
-#   Calculate[EffectiveMasses]{ E = 2.5, rho = 2.848 }
-#   Plot[Pmue]{ Type = Probability, From = mu, To = e, E = Range[0.5, 20, 0.05], L = 1300,
-#               Curves = {"SM" -> {}, "NSI" -> {eta_etau -> 0.1}}, File = "pmue.pdf" }
-#   Fit[EtaScan]{ Experiment = "DUNE.glb", Scan = {eta_etau -> Range[-0.04, 0.04, 0.004]},
-#                 Free = {theta23, deltaCP, dm31}, Priors = NuFit, Output = "eta.dat" }
-#   LaTeX["results.tex"]{ Title = "...", Parameters = On, MixingMatrix = Off, Print["..."] }
+#   Calculate[[1]] = {EffectiveMasses, {E -> 2.5, rho -> 2.848}};
+#   Plot[[1]] = {Pmue, {Type -> Probability, From -> mu, To -> e, E -> Range[0.5, 20, 0.05], L -> 1300,
+#                       Curves -> {"SM" -> {}, "NSI" -> {eta_etau -> 0.1}}, File -> "pmue.pdf"}};
+#   Fit[[1]] = {EtaScan, {Experiment -> "DUNE.glb", Scan -> {eta_etau -> Range[-0.04, 0.04, 0.004]},
+#                         Free -> {theta23, deltaCP, dm31}, Priors -> NuFit, Output -> "eta.dat"}};
+#   LaTeX[[1]] = {"results.tex", {Title -> "...", Parameters -> On, MixingMatrix -> Off, Text -> {"..."}}};
 #
 # Plain numbers are in GeV (E), km (L), g/cm³ (rho) and radians (angles);
 # with units (2.5 GeV, 1300 km, 198 Degree) they are converted.
@@ -15,7 +16,7 @@
     ModelRun
 
 What [`run_model`](@ref) did: the `model`, the results of `Calculate`
-blocks (`calculations`), of `Fit` blocks (`fits`), the figure files
+entries (`calculations`), of `Fit` entries (`fits`), the figure files
 (`figures`) and the LaTeX file (`tex`, or `nothing`).
 """
 struct ModelRun
@@ -46,8 +47,9 @@ end
     run_model(dir; run="Run.m", output=dir, plots=true) -> ModelRun
 
 Load the model in `dir` (see [`load_model`](@ref)) and execute its control
-file: `Calculate`, `Plot`, `Fit`, `LaTeX` and `Print` blocks in order.
-Output files go to `output`. Plot blocks need `using Plots` (with
+file: its `Calculate[[i]]`, `Plot[[i]]`, `Fit[[i]]`, `LaTeX[[i]]` entries
+and `Print[...]` statements in the order of the file.
+Output files go to `output`. Plot entries need `using Plots` (with
 `plots=false` they are skipped).
 """
 function run_model(dir::AbstractString; run = nothing, output = nothing, plots::Bool = true)
@@ -86,30 +88,34 @@ mutable struct RunState
     settings::Dict{Symbol, Any}      # top-level defaults: E, L, rho, Hierarchy, ...
 end
 
+const RUN_ENTRIES = (:Calculate, :Plot, :Fit, :LaTeX)
+
 function execute!(s::RunState, st)
-    if is_call(st, :Set)
-        lhs, rhs = st.args
-        lhs === :Hierarchy && (s.model.hierarchy = rhs; return)
-        lhs isa Symbol && (s.settings[lhs] = rhs)
-        return
-    end
     if is_call(st, :Print)
         println(join(string.(run_value(s, a, Dict()) for a in st.args)))
         return
     end
-    is_call(st, :Block) ||
+    is_call(st, :Set) ||
         throw(ArgumentError("unknown statement in control file: $(sprint(show_mexpr, st))"))
-    head = st.args[1]
-    kind = head isa Symbol ? head : head.head
-    arg = head isa MExpr && !isempty(head.args) ? head.args[1] : nothing
+    lhs, rhs = st.args
+    if lhs isa Symbol
+        lhs === :Hierarchy ? (s.model.hierarchy = rhs) : (s.settings[lhs] = rhs)
+        return
+    end
+    kind = is_call(lhs, :Part) ? lhs.args[1] : nothing
+    kind in RUN_ENTRIES || throw(
+        ArgumentError(
+            "unknown entry $(sprint(show_mexpr, lhs)) in control file; use $(join(("$k[[i]]" for k in RUN_ENTRIES), ", "))",
+        ),
+    )
+    is_call(rhs, :List) && length(rhs.args) == 2 && is_call(rhs.args[2], :List) ||
+        throw(ArgumentError("write $kind[[i]] = {name, {option -> value, ...}}"))
+    arg, list = rhs.args
     opts = Dict{Symbol, Any}()
-    extras = Any[]
-    for it in st.args[2:end]
-        if is_call(it, :Set) || is_call(it, :Rule)
-            opts[it.args[1]] = it.args[2]
-        else
-            push!(extras, it)
-        end
+    for r in list.args
+        is_call(r, :Rule) ||
+            throw(ArgumentError("options of $kind[[i]] are rules, not $(sprint(show_mexpr, r))"))
+        opts[r.args[1]] = r.args[2]
     end
     if kind === :Calculate
         calculate!(s, arg, opts)
@@ -117,12 +123,8 @@ function execute!(s::RunState, st)
         s.plots && run_plot!(s, arg, opts)
     elseif kind === :Fit
         run_fit!(s, arg, opts)
-    elseif kind === :LaTeX
-        run_latex!(s, arg, opts, extras)
     else
-        throw(
-            ArgumentError("unknown block $kind in control file; use Calculate, Plot, Fit or LaTeX"),
-        )
+        run_latex!(s, arg, opts)
     end
 end
 
@@ -391,7 +393,7 @@ function savefig_ end
 #  LaTeX
 # ---------------------------------------------------------------------------
 
-function run_latex!(s::RunState, file, opts, extras)
+function run_latex!(s::RunState, file, opts)
     m = s.model
     file = file === nothing ? "$(m.name).tex" : String(file)
     on(k, default = true) = get(opts, k, default ? :On : :Off) in (:On, :True)
@@ -430,11 +432,14 @@ function run_latex!(s::RunState, file, opts, extras)
             figure!(r, f; caption = escape_latex(caption))
         end
     end
-    for x in extras
-        if is_call(x, :Print) || is_call(x, :printf)
-            add!(r, join(string.(x.args)) * "\n")
+    text = get(opts, :Text, MExpr(:List, Any[]))
+    for x in (is_call(text, :List) ? text.args : Any[text])
+        if x isa String
+            add!(r, x * "\n")
         elseif is_call(x, :Section)
             section!(r, String(x.args[1]))
+        else
+            throw(ArgumentError("Text of LaTeX[[i]] holds strings and Section[\"title\"]"))
         end
     end
     path = joinpath(s.output, file)

@@ -1,29 +1,38 @@
-(* Scalar non-standard interactions and decoherence at long-baseline experiments.
-   The effective Hamiltonian is built from the blocks below:
+(* Scalar non-standard interactions (NSI) and decoherence at long-baseline experiments, in GLoBES.jl. *)
+(* Main model file: the ingredients of the effective Hamiltonian
        H = M M^dagger / 2E + A Diag[{1, 0, 0}]
-   with the scalar NSI correcting the mass matrix, M = U diag(m) U^dagger + Sqrt[|dm31|] eta,
-   and decoherence damping the coherences of the propagation eigenstates. *)
+   and the damping of the coherences by decoherence. Every ingredient that is left out takes its default. *)
 
 Model`Name = "SNSI";
 Model`NameLaTeX = "Scalar NSI with decoherence";
 Model`Authors = "GLoBES.jl example";
+Model`Date = "2026-10-24";
 
-(* The PDG mixing matrix R23 . Ud . R13 . Conj[Ud] . R12: a blank block takes the default *)
-MixingMatrix[Vacuum]{ }
+(* Mixing matrix in vacuum. The default is the PDG parametrisation, written with the built-in rotations
+   R12 = Rotation[1, 2, theta12], R13, R23 and Ud = PhaseMatrix[3, deltaCP]; it is repeated here to show the form. *)
 
-(* Absolute masses: the defaults, m1 = mlightest (NH) or m3 = mlightest (IH) *)
-MassHierarchy[NH]{ }
-MassHierarchy[IH]{ }
+MixingMatrix = R23 . Ud . R13 . Conj[Ud] . R12;
 
-(* Scalar NSI: a Hermitian correction to the mass matrix, in units of Sqrt[|dm31|] *)
-MassMatrix[Vacuum]{
-    M = U . Diag[{m1, m2, m3}] . Dagger[U] + Sqrt[Abs[dm31]] eta
-    eta = {{eta_ee, eta_emu Exp[I delta_emu], eta_etau Exp[I delta_etau]},
-           {eta_emu Exp[-I delta_emu], eta_mumu, eta_mutau Exp[I delta_mutau]},
-           {eta_etau Exp[-I delta_etau], eta_mutau Exp[-I delta_mutau], eta_tautau}}
-}
+(* Absolute masses. Each MassHierarchy entry: {name, {masses as rules}}. The defaults are
+   NH: m1 -> mlightest and IH: m3 -> mlightest, the others from dm21 and dm31; the hierarchy follows the sign of dm31.
+   Both are left out here, so the defaults are used. *)
 
-(* The standard matter potential A Diag[{1, 0, 0}] is included by default *)
+(* Scalar NSI: a Hermitian correction to the mass matrix, in units of Sqrt[|dm31|].
+   eta_ab is the size of the coupling of flavours a and b, delta_ab its phase. *)
 
-(* Decoherence: Gamma(E) = Gamma0 (E/GeV)^n for all pairs of eigenstates *)
-Decoherence[Lindblad]{ Gamma = Gamma0 (E/GeV)^n }
+eta = {{eta_ee, eta_emu Exp[I delta_emu], eta_etau Exp[I delta_etau]},
+       {eta_emu Exp[-I delta_emu], eta_mumu, eta_mutau Exp[I delta_mutau]},
+       {eta_etau Exp[-I delta_etau], eta_mutau Exp[-I delta_mutau], eta_tautau}};
+
+(* Mass matrix: with one, the vacuum Hamiltonian is M M^dagger / 2E instead of U Diag[{0, dm21, dm31}] U^dagger / 2E *)
+
+MassMatrix = U . Diag[{m1, m2, m3}] . Dagger[U] + Sqrt[Abs[dm31]] eta;
+
+(* Additional terms of the Hamiltonian. Each entry: {name, matrix in eV}; A is the matter potential.
+   The standard matter potential is the default, so this line could be left out. *)
+
+AdditionalTerms[[1]] = {Matter, A Diag[{1, 0, 0}]};
+
+(* Decoherence: the damping Gamma(E) of the coherences of all pairs of propagation eigenstates, in eV *)
+
+Decoherence = Gamma0 (E/GeV)^n;
