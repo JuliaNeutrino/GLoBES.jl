@@ -54,20 +54,22 @@ const MODELS = joinpath(@__DIR__, "..", "examples", "models")
     end
     standard_engine!()
 
-    # Blocks in a model string: a mixing matrix with local definitions,
-    # a named hierarchy, additional terms with energy dependence
+    # A model string: a mixing matrix from redefined rotations, a named
+    # hierarchy, additional terms with energy dependence
     m = model_from_string(
         """
-        MixingMatrix[R23 . R13 . R12]{ R12 = Rotation[1, 2, th], R13 = IdentityMatrix[], R23 = IdentityMatrix[] }
-        Hierarchy = Mine
-        MassHierarchy[Mine]{ m1 = 0.01, m2 = Sqrt[m1^2 + dm21], m3 = Sqrt[m1^2 + dm31] }
-        MassMatrix[Vacuum]{ M = U . Diag[{m1, m2, m3}] . Dagger[U] }
-        AdditionalTerms[Matter]{ }
-        AdditionalTerms[LIV]{ H = c E Diag[{1, -1, 0}] }
+        R12 = Rotation[1, 2, th];
+        R13 = IdentityMatrix[];
+        R23 = IdentityMatrix[];
+        MixingMatrix = R23 . R13 . R12;
+        Hierarchy = Mine;
+        MassHierarchy[[1]] = {Mine, {m1 -> 0.01, m2 -> Sqrt[m1^2 + dm21], m3 -> Sqrt[m1^2 + dm31]}};
+        MassMatrix = U . Diag[{m1, m2, m3}] . Dagger[U];
+        AdditionalTerms[[2]] = {LIV, c E Diag[{1, -1, 0}]};
         """;
         parameters = "ParameterDefinitions = {{th, {Value -> 0.5}}, {c, {Value -> 0}}};",
     )
-    @test [b.name for b in m.blocks if b.kind === :AdditionalTerms] == [:Matter, :LIV]
+    @test Set(b.name for b in m.blocks if b.kind === :AdditionalTerms) == Set([:Matter, :LIV])
     p = OscParams(m)
     H = hamiltonian(m, p; E = 1.0)
     R = [cos(0.5) sin(0.5) 0; -sin(0.5) cos(0.5) 0; 0 0 1]
@@ -90,13 +92,20 @@ const MODELS = joinpath(@__DIR__, "..", "examples", "models")
     @test a ≈ probability(nufit_params("6.1"), :μ, :e; E, L = 1300, ρ = 2.8) rtol = 1e-10
 
     # Errors
-    @test_throws ArgumentError model_from_string("Mixing[X]{ U = 1 }")
+    @test_throws ArgumentError model_from_string("Mixing[[1]] = {X, 1};")
+    @test_throws ArgumentError model_from_string("AdditionalTerms[[1]] = A;")
+    @test_throws ArgumentError model_from_string("MassHierarchy[[1]] = {NH, {m1 = 0}};")
+    # A later entry of the same name replaces an earlier one; Off removes the default
+    m = model_from_string(
+        "AdditionalTerms[[1]] = {Matter, 2 A};\nAdditionalTerms[[1]] = {Matter, Off};",
+    )
+    @test hamiltonian(m, OscParams(m); E = 1.0, ρ = 3.0) ≈ hamiltonian(m, OscParams(m); E = 1.0)
     @test_throws ArgumentError OscParams(std; nonsense = 1.0)
     @test_throws DimensionMismatch hamiltonian(
-        model_from_string("MixingMatrix[V]{ U = Diag[{1, 1}] }"),
+        model_from_string("MixingMatrix = Diag[{1, 1}];"),
         OscParams(std);
         E = 1.0,
     )
-    w = model_from_string("AdditionalTerms[X]{ H = g A Diag[{1, 0, 0}] }")
+    w = model_from_string("AdditionalTerms[[1]] = {X, g A Diag[{1, 0, 0}]};")
     @test any(occursin("g", x) for x in w.warnings)
 end

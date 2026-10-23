@@ -311,20 +311,13 @@ function parse_expr(p::MParser, min_bp)
             lhs = parse_postfix(p, lhs)
             continue
         end
-        # Head[...]{ ... } with no space before the brace: a block of definitions
-        if is_op(t, "{") && !t.space && (lhs isa Symbol || lhs isa MExpr && lhs.head isa Symbol)
-            POSTFIX < min_bp && break
-            next_token!(p)
-            lhs = MExpr(:Block, Any[lhs; parse_block_items(p)])
-            continue
-        end
         if t.kind === :op && haskey(INFIX, t.value)
             lbp, rbp = INFIX[t.value]
             (lbp < min_bp || at_break) && break
             next_token!(p)
             rhs = parse_expr(p, rbp)
             lhs = combine(t.value, lhs, rhs)
-        elseif starts_operand(t) && !at_break && !ends_item_statement(lhs)
+        elseif starts_operand(t) && !at_break
             lbp, rbp = IMPLICIT_TIMES
             lbp < min_bp && break
             rhs = parse_expr(p, rbp)
@@ -370,41 +363,6 @@ function parse_prefix(p::MParser)
         )
     end
 end
-
-# Items of a block, separated by commas, semicolons or line breaks
-function parse_block_items(p::MParser)
-    saved = p.depth
-    p.depth = 0
-    items = Any[]
-    while true
-        t = peek_token(p)
-        if is_op(t, ",") || is_op(t, ";")
-            next_token!(p)
-        elseif is_op(t, "}")
-            next_token!(p)
-            break
-        elseif t.kind === :eof
-            syntax_error(p, "unterminated block")
-        else
-            push!(items, parse_expr(p, 0))
-            u = peek_token(p)
-            u.newline ||
-                is_op(u, ",") ||
-                is_op(u, ";") ||
-                is_op(u, "}") ||
-                ends_item_statement(items[end]) ||
-                syntax_error(p, "unexpected $(repr(u.value)) in block")
-        end
-    end
-    p.depth = saved
-    return items
-end
-
-# Switches and print commands do not multiply what follows them, so that
-# a block can list `X = Off Print["..."] Y = On` on one line
-ends_item(e) =
-    e === :On || e === :Off || is_call(e, :Print) || is_call(e, :printf) || is_call(e, :Section)
-ends_item_statement(e) = ends_item(e) || is_call(e, :Set) && ends_item(e.args[2])
 
 function parse_sequence(p::MParser, close)
     items = Any[]

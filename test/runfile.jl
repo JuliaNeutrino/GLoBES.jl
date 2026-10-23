@@ -20,8 +20,8 @@
     write(
         joinpath(dir, "Run.m"),
         """
-        Fit[Eta]{ Experiment = "$nova", Scan = {eta_etau -> Range[-0.1, 0.1, 0.05]}, Output = "eta.dat" }
-        LaTeX["fit.tex"]{ Model = Off, Parameters = Off }
+        Fit[[1]] = {Eta, {Experiment -> "$nova", Scan -> {eta_etau -> Range[-0.1, 0.1, 0.05]}, Output -> "eta.dat"}};
+        LaTeX[[1]] = {"fit.tex", {Model -> Off, Parameters -> Off, Text -> {Section["Notes"], "A note."}}};
         """,
     )
     r = run_model(dir; plots = false)
@@ -29,5 +29,8 @@
     @test name == "Eta" && res.x ≈ -0.1:0.05:0.1
     @test res.chi2[3] == 0 && all(res.chi2[[1, 2, 4, 5]] .> 0)
     @test length(readlines(joinpath(dir, "eta.dat"))) == 6
-    @test occursin("\\paragraph{Eta}", read(joinpath(dir, "fit.tex"), String))
+    doc = read(joinpath(dir, "fit.tex"), String)
+    @test occursin("\\paragraph{Eta}", doc) && occursin("A note.", doc)
+    write(joinpath(dir, "Run.m"), "Fit[Eta] = {Experiment -> \"x\"};")
+    @test_throws ArgumentError run_model(dir; plots = false)
 end

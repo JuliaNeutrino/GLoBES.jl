@@ -509,8 +509,8 @@ function block_uses(b::ModelBlock, k::Symbol, m)
     return found
 end
 
-block_title(b::ModelBlock) =
-    Dict(
+function block_title(b::ModelBlock)
+    title = Dict(
         :MixingMatrix => "Mixing matrix",
         :MassSquared => "Masses squared",
         :MassHierarchy => "Mass hierarchy",
@@ -518,10 +518,9 @@ block_title(b::ModelBlock) =
         :AdditionalTerms => "Additional term",
         :Decoherence => "Decoherence",
         :Hamiltonian => "Hamiltonian",
-    )[b.kind] *
-    " [" *
-    String(b.name) *
-    "]"
+    )[b.kind]
+    return b.kind in LIST_BLOCKS ? title * " " * String(b.name) : title
+end
 
 function hamiltonian_latex(m::OscillationModel, names)
     hb = findfirst(b -> b.kind === :Hamiltonian && !b.off, m.blocks)

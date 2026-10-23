@@ -1,13 +1,13 @@
-# Oscillation models defined in files, in the spirit of SARAH: the effective
-# Hamiltonian is the vacuum Hamiltonian plus additional terms, each defined
-# in a block that falls back to built-in defaults when left blank.
+# Oscillation models defined in files written like SARAH model files: each
+# ingredient of the effective Hamiltonian is one assignment, and every
+# ingredient that is left out takes its built-in default.
 #
-#   MixingMatrix[Vacuum]{ U = R23 . Ud . R13 . Conj[Ud] . R12 }
-#   MassSquared[Vacuum]{ }                        (default Diag[{0, dm21, dm31}])
-#   MassHierarchy[NH]{ m1 = mlightest, m2 = Sqrt[m1^2 + dm21], m3 = Sqrt[m1^2 + dm31] }
-#   MassMatrix[Vacuum]{ M = U . Diag[{m1, m2, m3}] . Dagger[U] + Sqrt[Abs[dm31]] eta }
-#   AdditionalTerms[NSI]{ H = A eps }
-#   Decoherence[Lindblad]{ Gamma = Gamma0 (E/GeV)^n }
+#   MixingMatrix = R23 . Ud . R13 . Conj[Ud] . R12;
+#   MassSquared = Diag[{0, dm21, dm31}];
+#   MassHierarchy[[1]] = {NH, {m1 -> mlightest, m2 -> Sqrt[m1^2 + dm21], m3 -> Sqrt[m1^2 + dm31]}};
+#   MassMatrix = U . Diag[{m1, m2, m3}] . Dagger[U] + Sqrt[Abs[dm31]] eta;
+#   AdditionalTerms[[1]] = {NSI, A eps};
+#   Decoherence = Gamma0 (E/GeV)^n;
 #
 # H = M M†/2E (or U MassSquared U†/2E without a mass matrix) + Σ AdditionalTerms.
 # All quantities are in eV: E is the neutrino energy, A = √2 G_F N_e the
@@ -16,47 +16,44 @@
 
 # The defaults, written in the model language itself
 const DEFAULT_MODEL_SOURCE = """
-R12 = Rotation[1, 2, theta12]
-R13 = Rotation[1, 3, theta13]
-R23 = Rotation[2, 3, theta23]
-Ud = PhaseMatrix[3, deltaCP]
-PMNS = R23 . Ud . R13 . Conj[Ud] . R12
+R12 = Rotation[1, 2, theta12];
+R13 = Rotation[1, 3, theta13];
+R23 = Rotation[2, 3, theta23];
+Ud = PhaseMatrix[3, deltaCP];
+PMNS = R23 . Ud . R13 . Conj[Ud] . R12;
 
-MixingMatrix[Vacuum]{ U = PMNS }
-MassSquared[Vacuum]{ M2 = Diag[{0, dm21, dm31}] }
-MassHierarchy[NH]{ m1 = mlightest, m2 = Sqrt[m1^2 + dm21], m3 = Sqrt[m1^2 + dm31] }
-MassHierarchy[IH]{ m3 = mlightest, m1 = Sqrt[m3^2 - dm31], m2 = Sqrt[m1^2 + dm21] }
-AdditionalTerms[Matter]{ H = A Diag[{1, 0, 0}] }
+MixingMatrix = PMNS;
+MassSquared = Diag[{0, dm21, dm31}];
+MassHierarchy[[1]] = {NH, {m1 -> mlightest, m2 -> Sqrt[m1^2 + dm21], m3 -> Sqrt[m1^2 + dm31]}};
+MassHierarchy[[2]] = {IH, {m3 -> mlightest, m1 -> Sqrt[m3^2 - dm31], m2 -> Sqrt[m1^2 + dm21]}};
+AdditionalTerms[[1]] = {Matter, A Diag[{1, 0, 0}]};
 """
 
-# Block kinds, the symbol that holds a block's value, and accepted spellings
-const BLOCK_KINDS = (
-    (:MixingMatrix, :U, ("MixingMatrix",)),
-    (:MassSquared, :M2, ("MassSquare",)),
-    (:MassMatrix, :M, ("MassMatrix",)),
-    (:MassHierarchy, nothing, ("MassHierarchy", "MH")),
-    (:AdditionalTerms, :H, ("AdditionalTerm",)),
-    (:Decoherence, :Gamma, ("Decoherence", "Dissipation")),
-    (:Hamiltonian, :H, ("Hamiltonian",)),
+# Ingredients with one definition (`MixingMatrix = ...;`) and the symbol that
+# holds their value in other definitions
+const SINGLE_BLOCKS = (
+    (:MixingMatrix, :U),
+    (:MassSquared, :M2),
+    (:MassMatrix, :M),
+    (:Decoherence, :Gamma),
+    (:Hamiltonian, :H),
 )
+# Ingredients with named entries (`AdditionalTerms[[i]] = {name, definition};`)
+const LIST_BLOCKS = (:MassHierarchy, :AdditionalTerms)
 
-function block_kind(head::Symbol)
-    s = String(head)
-    for (kind, _, prefixes) in BLOCK_KINDS
-        any(p -> startswith(s, p), prefixes) && return kind
-    end
-    return nothing
+function main_symbol(kind)
+    i = findfirst(k -> k[1] === kind, SINGLE_BLOCKS)
+    return i === nothing ? (kind === :AdditionalTerms ? :H : nothing) : SINGLE_BLOCKS[i][2]
 end
-main_symbol(kind) = BLOCK_KINDS[findfirst(k -> k[1] === kind, BLOCK_KINDS)][2]
 
 """
     ModelBlock
 
-A block of a model file, `Kind[Name]{ definitions }`: its `kind`
-(`:MixingMatrix`, `:MassSquared`, `:MassMatrix`, `:MassHierarchy`,
-`:AdditionalTerms`, `:Decoherence` or `:Hamiltonian`), `name`, the
-expression that defines it (`definition`, `nothing` for the default) and
-its local definitions.
+An ingredient of a model file: its `kind` (`:MixingMatrix`, `:MassSquared`,
+`:MassMatrix`, `:MassHierarchy`, `:AdditionalTerms`, `:Decoherence` or
+`:Hamiltonian`), `name` (the first entry of `MassHierarchy[[i]]` and
+`AdditionalTerms[[i]]`, the kind otherwise), the expression that defines it
+and, for a mass hierarchy, the masses it defines (`locals`, in `order`).
 """
 struct ModelBlock
     kind::Symbol
@@ -67,6 +64,8 @@ struct ModelBlock
     off::Bool
     default::Bool                  # one of the built-in blocks
 end
+
+block_label(b::ModelBlock) = b.kind in LIST_BLOCKS ? "$(b.kind)[$(b.name)]" : String(b.kind)
 
 """
     ModelParameter
@@ -133,12 +132,7 @@ function Base.show(io::IO, ::MIME"text/plain", m::OscillationModel)
     println(io, "  flavours:   ", join(m.flavours, ", "))
     for b in m.blocks
         b.off && continue
-        println(
-            io,
-            "  ",
-            rpad("$(b.kind)[$(b.name)]", 28),
-            b.default ? "(default)" : definition_string(b),
-        )
+        println(io, "  ", rpad(block_label(b), 28), b.default ? "(default)" : definition_string(b))
     end
     println(io, "  hierarchy:  ", m.hierarchy)
     print(io, "  parameters: ", join((p.name for p in m.parameters), ", "))
@@ -241,7 +235,7 @@ Read an oscillation model from a directory like a SARAH model:
       particles.m      optional: Flavours = {e, mu, tau, s}
       Run.m            what to calculate, plot, fit and write to LaTeX (see run_model)
 
-Any block left out takes the default: the PDG mixing matrix, Δm² from
+Any ingredient left out takes the default: the PDG mixing matrix, Δm² from
 NuFIT, the NH and IH hierarchies and the standard matter potential. An
 empty directory, or `load_model()`, is the standard three-flavour model.
 """
@@ -334,11 +328,20 @@ end
 
 function read_model_statements!(m::OscillationModel, statements; default = false)
     for st in statements
-        if is_call(st, :Block)
-            push!(m.blocks, block_from_statement(st, default))
-        elseif is_call(st, :Set) || is_call(st, :SetDelayed)
-            lhs, rhs = st.args
-            lhs isa Symbol || continue
+        if !(is_call(st, :Set) || is_call(st, :SetDelayed))
+            push!(m.warnings, "ignored statement $(sprint(show_mexpr, st))")
+            continue
+        end
+        lhs, rhs = st.args
+        if lhs isa Symbol && any(k -> k[1] === lhs, SINGLE_BLOCKS)
+            add_block!(
+                m,
+                ModelBlock(lhs, lhs, rhs, Dict{Symbol, Any}(), Symbol[], rhs === :Off, default),
+            )
+        elseif is_call(lhs, :Part) && lhs.args[1] in LIST_BLOCKS
+            push!(m.blocks, list_block(lhs.args[1], rhs, default))
+            replace_named!(m)
+        elseif lhs isa Symbol
             name = String(lhs)
             if startswith(name, "Model`")
                 key = name[7:end]
@@ -355,44 +358,60 @@ function read_model_statements!(m::OscillationModel, statements; default = false
                 m.globals[lhs] = rhs
                 lhs in m.global_order || push!(m.global_order, lhs)
             end
+        else
+            throw(
+                ArgumentError(
+                    "cannot assign to $(sprint(show_mexpr, lhs)); the ingredients are " *
+                    join((String(k[1]) * " = ..." for k in SINGLE_BLOCKS), ", ") *
+                    ", MassHierarchy[[i]] = {name, {m1 -> ..., ...}} and AdditionalTerms[[i]] = {name, H}",
+                ),
+            )
         end
     end
 end
 
-function block_from_statement(st::MExpr, default::Bool)
-    head, items = st.args[1], st.args[2:end]
-    hname = head isa Symbol ? head : head.head
-    kind = block_kind(hname)
-    kind === nothing &&
-        throw(ArgumentError("unknown block $hname; blocks are $(join(first.(BLOCK_KINDS), ", "))"))
-    arg = head isa MExpr && !isempty(head.args) ? head.args[1] : nothing
-    name, definition = arg isa Symbol ? (arg, nothing) : (kind, arg)
-    locals = Dict{Symbol, Any}()
-    order = Symbol[]
-    off = false
-    for it in items
-        if it === :Off || is_call(it, :Off)
-            off = true
-        elseif is_call(it, :Set) || is_call(it, :SetDelayed)
-            k = it.args[1]
-            locals[k] = it.args[2]
-            push!(order, k)
-        elseif definition === nothing
-            definition = it                       # a bare expression defines the block
-        end
-    end
-    main = main_symbol(kind)
-    if definition === nothing && main !== nothing && haskey(locals, main)
-        definition = locals[main]
-    end
-    definition === nothing || definition !== :Off || (off = true; definition = nothing)
-    return ModelBlock(kind, name, definition, locals, order, off, default)
+# A model sets each single ingredient once: a later definition replaces an earlier one
+function add_block!(m::OscillationModel, b::ModelBlock)
+    filter!(x -> x.kind !== b.kind, m.blocks)
+    push!(m.blocks, b)
+end
+
+# MassHierarchy[[i]] = {name, {m1 -> ..., ...}} and AdditionalTerms[[i]] = {name, H}
+function list_block(kind::Symbol, rhs, default::Bool)
+    is_call(rhs, :List) && length(rhs.args) == 2 && rhs.args[1] isa Symbol || throw(
+        ArgumentError(
+            kind === :MassHierarchy ?
+            "write MassHierarchy[[i]] = {name, {m1 -> ..., m2 -> ..., m3 -> ...}}" :
+            "write AdditionalTerms[[i]] = {name, H}",
+        ),
+    )
+    name, def = rhs.args
+    kind === :AdditionalTerms &&
+        return ModelBlock(kind, name, def, Dict{Symbol, Any}(), Symbol[], def === :Off, default)
+    is_call(def, :List) && all(r -> is_call(r, :Rule) && r.args[1] isa Symbol, def.args) ||
+        throw(ArgumentError("the masses of MassHierarchy $name are rules, {m1 -> ..., m2 -> ...}"))
+    locals = Dict{Symbol, Any}(r.args[1] => r.args[2] for r in def.args)
+    return ModelBlock(
+        kind,
+        name,
+        nothing,
+        locals,
+        Symbol[r.args[1] for r in def.args],
+        false,
+        default,
+    )
+end
+
+# A list entry replaces an earlier one of the same kind and name
+function replace_named!(m::OscillationModel)
+    b = m.blocks[end]
+    i = findfirst(x -> x.kind === b.kind && x.name === b.name, m.blocks)
+    i < length(m.blocks) && (m.blocks[i] = pop!(m.blocks))
 end
 
 # Built-in blocks that the model does not replace
 function add_default_blocks!(m::OscillationModel)
     defaults = new_model()
-    defaults.flavours = m.flavours
     read_model_statements!(defaults, parse_mathematica(DEFAULT_MODEL_SOURCE); default = true)
     for k in defaults.global_order
         haskey(m.globals, k) && continue
@@ -401,46 +420,15 @@ function add_default_blocks!(m::OscillationModel)
     end
     has(kind) = any(b -> b.kind === kind, m.blocks)
     for b in defaults.blocks
-        if b.kind === :MixingMatrix
-            has(:MixingMatrix) && continue
-        elseif b.kind === :MassSquared
+        if b.kind === :MassSquared
             (has(:MassSquared) || has(:MassMatrix) || has(:Hamiltonian)) && continue
-        elseif b.kind === :MassHierarchy
-            any(x -> x.kind === :MassHierarchy && x.name === b.name, m.blocks) && continue
-        elseif b.kind === :AdditionalTerms
-            (
-                any(x -> x.kind === :AdditionalTerms && x.name === b.name, m.blocks) ||
-                has(:Hamiltonian)
-            ) && continue
+        elseif b.kind in LIST_BLOCKS
+            any(x -> x.kind === b.kind && x.name === b.name, m.blocks) && continue
+            b.kind === :AdditionalTerms && has(:Hamiltonian) && continue
+        else
+            has(b.kind) && continue
         end
         push!(m.blocks, b)
-    end
-    # A blank block takes the definition of the default block of the same kind
-    for (i, b) in enumerate(m.blocks)
-        b.definition === nothing && !b.off && b.kind !== :MassHierarchy || continue
-        d = findfirst(
-            x ->
-                x.kind === b.kind && (x.name === b.name || b.kind in (:MixingMatrix, :MassSquared)),
-            defaults.blocks,
-        )
-        if d === nothing
-            throw(ArgumentError("block $(b.kind)[$(b.name)] has no definition and no default"))
-        end
-        m.blocks[i] = ModelBlock(
-            b.kind,
-            b.name,
-            defaults.blocks[d].definition,
-            b.locals,
-            b.order,
-            b.off,
-            b.default,
-        )
-    end
-    # Blank hierarchies take the default's masses
-    for (i, b) in enumerate(m.blocks)
-        b.kind === :MassHierarchy && isempty(b.locals) && !b.default || continue
-        d = findfirst(x -> x.kind === :MassHierarchy && x.name === b.name, defaults.blocks)
-        d === nothing || (m.blocks[i] = defaults.blocks[d])
     end
     return m
 end
@@ -635,12 +623,9 @@ function free_symbols(m::OscillationModel)
 end
 
 function validate_model!(m::OscillationModel)
-    count(b -> b.kind === :MixingMatrix && !b.off, m.blocks) <= 1 ||
-        any(b -> b.kind === :MixingMatrix && b.name === :Vacuum, m.blocks) ||
-        throw(ArgumentError("several MixingMatrix blocks; name the one to use [Vacuum]"))
     m.hierarchy === :Auto ||
         any(b -> b.kind === :MassHierarchy && b.name === m.hierarchy, m.blocks) ||
-        throw(ArgumentError("no MassHierarchy[$(m.hierarchy)] block"))
+        throw(ArgumentError("no MassHierarchy named $(m.hierarchy)"))
     return m
 end
 
@@ -740,11 +725,8 @@ end
 
 function block_value(ctx::ModelContext, kind::Symbol)
     m = ctx.model
-    candidates = findall(b -> b.kind === kind && !b.off, m.blocks)
-    isempty(candidates) && throw(ArgumentError("model $(m.name) has no $kind block"))
-    i =
-        length(candidates) == 1 ? only(candidates) :
-        something(findfirst(j -> m.blocks[j].name === :Vacuum, candidates), candidates[1])
+    i = findfirst(b -> b.kind === kind && !b.off, m.blocks)
+    i === nothing && throw(ArgumentError("model $(m.name) has no $kind"))
     return block_value(ctx, m.blocks[i])
 end
 
