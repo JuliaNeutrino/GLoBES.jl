@@ -7,3 +7,5 @@ It is written for GLoBES 3.2: correlated systematics (`sys(#name)` groups and `c
 ```julia
 dune = Experiment("examples/DUNE/DUNE_GLoBES.glb")   # 40 kt, 1284.9 km, 6.5 + 6.5 years
 ```
+
+Only the AEDL files are in git. The data tables (`eff/*.dat`, `flux/*.txt`, `smr/*.txt`, `xsec/*.dat`) of the DUNE TDR configuration go into the same subdirectories before the experiment can be loaded; the DUNE tests in `test/multiexp.jl` are skipped without them.
