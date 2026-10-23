@@ -49,6 +49,15 @@ marginalize(test; fixed = (:θ13,),               # with correlations: 2.03
 [`examples/tour.jl`](examples/tour.jl) continues this example with projections, the sign degeneracy and a second detector at the magic baseline.
 The [`examples`](examples) folder also contains Julia ports of all C GLoBES example programs.
 
+## Notebooks
+
+The Jupyter notebooks in [`notebooks`](notebooks) run on Google Colab. Choose **Runtime → Change runtime type → Julia** first. Their outputs are stored, so GitHub shows them without running anything.
+
+| Notebook | Contents | Colab |
+| --- | --- | --- |
+| [Getting started](notebooks/01_getting_started.ipynb) | probabilities, DUNE event rates, χ², a model of new physics in a few lines | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/arnavk23/GLoBES.jl/blob/main/notebooks/01_getting_started.ipynb) |
+| [Scalar NSI and decoherence at DUNE](notebooks/02_scalar_NSI_and_decoherence_at_DUNE.ipynb) | the SNSI model files, probabilities, mass-ordering and CP-violation sensitivities, the bound on η_eτ | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/arnavk23/GLoBES.jl/blob/main/notebooks/02_scalar_NSI_and_decoherence_at_DUNE.ipynb) |
+
 ## Documentation
 
 - The [user manual](docs/manual/globes-jl-manual.pdf) (PDF, built from [`docs/manual`](docs/manual)) follows the structure of the GLoBES 3.0 manual: the physics and formulas behind every computation, the high-level API, AEDL, the `glb*` compatibility layer and the differences from C GLoBES. All of its numbers and figures are computed with GLoBES.jl.
