@@ -211,6 +211,13 @@ end
 
 glbChiZero(exp, rule, n_params, x, errors, user_data) = 0.0
 
+# chiMultiExp (GLoBES 3.2): the normalisation of each channel of a rule has
+# the sys(#name) errors listed in @sys_on_multiex_errors_sig/_bg, shared by
+# all rules and experiments that list them. glbChiSys minimises these rules
+# together (chi_multiex in minimize.jl); they have no χ² of their own.
+glbChiMultiExp(exp, rule, n_params, x, errors, user_data) =
+    throw(GLoBESError("chiMultiExp rules are minimised together by glbChiSys"))
+
 """
     shift_energy_scale(b, rates, centers, widths) -> rates_out
 
@@ -610,4 +617,5 @@ function register_builtin_chi_functions!()
     glbDefineChiFunction(glbChiNoSysTotalRates, 0, "chiNoSysTotalRates")
     glbDefineChiFunction(glbChiSpectrumCalib, 4, "chiSpectrumCalib")
     glbDefineChiFunction(glbChiZero, 0, "chiZero")
+    glbDefineChiFunction(glbChiMultiExp, 0, "chiMultiExp")
 end

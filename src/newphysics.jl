@@ -1,3 +1,49 @@
+const G_FERMI = 1.1663788e-5          # GeV⁻², PDG 2024
+
+# The PMNS matrix and the light neutrino masses of oscillation parameters
+
+"""
+    pmns_matrix(params; majorana_phases=(0, 0)) -> Matrix{ComplexF64}
+
+The PMNS matrix in the PDG parametrisation, times diag(1, e^{iα21/2}, e^{iα31/2}).
+
+```julia
+U = pmns_matrix(nufit_params("6.1"); majorana_phases = (0, π / 2))   # oscillation parameters, (α21, α31)
+```
+"""
+function pmns_matrix(p::OscParams; majorana_phases = (0.0, 0.0))
+    s12, c12 = sincos(p.θ12)
+    s13, c13 = sincos(p.θ13)
+    s23, c23 = sincos(p.θ23)
+    e = cis(p.δ)
+    U = ComplexF64[
+        c12*c13 s12*c13 s13/e
+        -s12*c23-c12*s23*s13*e c12*c23-s12*s23*s13*e s23*c13
+        s12*s23-c12*c23*s13*e -c12*s23-s12*c23*s13*e c23*c13
+    ]
+    return U * Diagonal([1, cis(majorana_phases[1] / 2), cis(majorana_phases[2] / 2)])
+end
+
+"""
+    light_masses(params; lightest=0) -> Vector{Float64}
+
+m₁, m₂, m₃ in eV from Δm²21, Δm²31 and the lightest mass (m₁ for normal,
+m₃ for inverted ordering).
+
+```julia
+light_masses(nufit_params("6.1"); lightest = 0.01)   # oscillation parameters, lightest mass in eV: [m1, m2, m3]
+```
+"""
+function light_masses(p::OscParams; lightest::Real = 0.0)
+    if p.Δm31 > 0
+        m1 = Float64(lightest)
+        return [m1, sqrt(m1^2 + p.Δm21), sqrt(m1^2 + p.Δm31)]
+    end
+    m3 = Float64(lightest)
+    m1 = sqrt(m3^2 - p.Δm31)
+    return [m1, sqrt(m1^2 + p.Δm21), m3]
+end
+
 # Oscillation physics beyond the standard three-flavour picture, assembled
 # from blocks: scalar NSI, matter (vector) NSI and decoherence. A `NewPhysics`
 # model turns its blocks into a probability engine with one named parameter

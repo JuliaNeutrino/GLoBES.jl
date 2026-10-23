@@ -27,6 +27,11 @@ by hand):
 
 The setups in `make_reference.c` and `runtests.jl` must be kept in sync.
 
+`multiexp.jl` checks the GLoBES 3.2 features with the DUNE configuration in
+`examples/DUNE` against C GLoBES 3.2.18 (`reference/dune_reference.c`, run
+from `examples/DUNE`). The tolerance is 10⁻⁵: the 3.2.18 library has the old
+physical constants.
+
 ## Where GLoBES.jl deliberately differs from C
 
 The C numbers are a cross-check, not the specification: where C GLoBES is

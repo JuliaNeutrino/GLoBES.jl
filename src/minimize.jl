@@ -507,9 +507,12 @@ end
 #  Nested minimization: systematics inside, oscillation parameters outside
 # ---------------------------------------------------------------------------
 
+is_multiex(r::Rule) = (s = active_sys(r)) !== nothing && s.name == "chiMultiExp"
+
 function chi_rule(exp, rule)
     e = state().experiments[exp]
     r = e.rules[rule]
+    is_multiex(r) && return chi_multiex([(exp, rule)])
     sys = active_sys(r)
     dim = sys.dim
     errors = something(active_errors(r), Float64[])
@@ -523,8 +526,82 @@ function chi_rule(exp, rule)
     return res
 end
 
-chi_exp(exp) =
-    sum((chi_rule(exp, j) for j in eachindex(state().experiments[exp].rules)); init = 0.0)
+# A chiMultiExp rule with its channels and, for each channel, the indices
+# of its sys errors among those minimised over
+struct MultiExpRule
+    true_rates::Vector{Float64}
+    bins::UnitRange{Int}
+    channels::Vector{Vector{Float64}}     # post-smearing fit rates
+    coeff::Vector{Float64}
+    errors::Vector{Vector{Int}}
+end
+
+function MultiExpRule(e::ExperimentData, rule, names)
+    r = e.rules[rule]
+    idx(lists, k) = k <= length(lists) ? [findfirst(==(n), names) for n in lists[k]] : Int[]
+    nsig = length(r.signal_channels)
+    return MultiExpRule(
+        e.rates0[rule],
+        r.energy_window_bins[1]:r.energy_window_bins[2],
+        [e.chra_1[c] for c in vcat(r.signal_channels, r.bg_channels)],
+        vcat(r.signal_coeff, r.bg_centers[1] .* r.bg_coeff),
+        vcat(
+            [idx(r.multiex_sig, k) for k = 1:nsig],
+            [idx(r.multiex_bg, k) for k in eachindex(r.bg_channels)],
+        ),
+    )
+end
+
+# χ² of a rule for the values x of the sys errors: each channel is scaled by
+# 1 + the sum of its errors
+function multiex_chi(m::MultiExpRule, x)
+    chi2 = 0.0
+    for i in m.bins
+        fit = 0.0
+        for k in eachindex(m.channels)
+            s = 1.0
+            for j in m.errors[k]
+                s += x[j]
+            end
+            fit += m.coeff[k] * s * m.channels[k][i]
+        end
+        chi2 += glb_likelihood(m.true_rates[i], fit)
+    end
+    return chi2
+end
+
+# χ² of the chiMultiExp rules `rules` (pairs of experiment and rule numbers),
+# minimised together over the sys errors they share, with a Gaussian prior on each
+function chi_multiex(rules)
+    isempty(rules) && return 0.0
+    exps = state().experiments
+    names = String[]
+    for (i, j) in rules, l in (exps[i].rules[j].multiex_sig..., exps[i].rules[j].multiex_bg...)
+        append!(names, l)
+    end
+    unique!(names)
+    σ = map(names) do n
+        i = findfirst(((i, _),) -> haskey(exps[i].sys_errors, n), rules)
+        i === nothing && throw(GLoBESError("sys group $n is not defined"))
+        exps[rules[i][1]].sys_errors[n]
+    end
+    parts = [MultiExpRule(exps[i], j, names) for (i, j) in rules]
+    f(x) = sum(m -> multiex_chi(m, x), parts) + sum(k -> (x[k] / σ[k])^2, eachindex(x); init = 0.0)
+    status, res, _ = glb_powell!(zeros(length(names)), identity_matrix(length(names)), TOLSYS, f)
+    status == 0 || (glb_warning("Systematics minimization failed."); return -res)
+    return res
+end
+
+multiex_rules(exp) =
+    [(exp, j) for (j, r) in enumerate(state().experiments[exp].rules) if is_multiex(r)]
+
+# The rules of an experiment without chiMultiExp, each minimised on its own
+chi_exp_single_rules(exp) = sum(
+    (chi_rule(exp, j) for (j, r) in enumerate(state().experiments[exp].rules) if !is_multiex(r));
+    init = 0.0,
+)
+
+chi_exp(exp) = chi_exp_single_rules(exp) + chi_multiex(multiex_rules(exp))
 
 function set_osc_from_vector!(x)
     p = glbAllocParams()
@@ -540,7 +617,9 @@ function chi_all_exps(x)
         set_profile_scaling!(e, x[n_osc() + i])
         set_new_rates!(e)
     end
-    return sum((chi_exp(i) for i = 1:n_exps()); init = 0.0)
+    return sum((chi_exp_single_rules(i) for i = 1:n_exps()); init = 0.0) + chi_multiex(
+        reduce(vcat, (multiex_rules(i) for i = 1:n_exps()); init = Tuple{Int, Int}[]),
+    )
 end
 
 function chi_single_exp(x, exp, rule = GLB_ALL)
@@ -946,6 +1025,9 @@ end
 
 function invoke_hybrid_minimizer!(exp, rule, x)
     st = state()
+    any(is_multiex, (r for e in st.experiments for r in e.rules)) && throw(
+        GLoBESError("rules with chiMultiExp need the nested minimizer (GLB_MIN_NESTED_POWELL)"),
+    )
     N = n_osc() + n_exps()
     st.fix_params = copy(x[1:N])
     P = Float64[]

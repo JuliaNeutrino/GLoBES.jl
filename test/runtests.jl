@@ -487,9 +487,8 @@ cd(DATADIR) do
 end
 
 # Beyond GLoBES: models, NuFIT, new physics, LaTeX and analyses
+include("multiexp.jl")
 include("mathematica.jl")
-include("particlemodel.jl")
-include("mechanisms.jl")
 include("nufit.jl")
 include("newphysics.jl")
 include("oscmodel.jl")
