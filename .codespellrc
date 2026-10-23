@@ -1,3 +1,4 @@
 [codespell]
-# Journal abbreviations (Comput. Phys. Commun., Numer.) and a variable name in example4.jl
-ignore-words-list = commun,numer,thex
+# Journal abbreviations (Comput. Phys. Commun., Numer.), a variable name in example4.jl
+# and the folder of ancillary files on arXiv (anc)
+ignore-words-list = anc,commun,numer,thex
