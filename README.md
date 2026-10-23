@@ -1,13 +1,5 @@
 # GLoBES.jl
 
-[![Stable Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://arnavk23.github.io/GLoBES.jl/stable)
-[![Development documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://arnavk23.github.io/GLoBES.jl/dev)
-[![User manual (PDF)](https://img.shields.io/badge/manual-PDF-orange.svg)](docs/manual/globes-jl-manual.pdf)
-[![Test workflow status](https://github.com/arnavk23/GLoBES.jl/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/arnavk23/GLoBES.jl/actions/workflows/Test.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/arnavk23/GLoBES.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/arnavk23/GLoBES.jl)
-[![Lint workflow Status](https://github.com/arnavk23/GLoBES.jl/actions/workflows/Lint.yml/badge.svg?branch=main)](https://github.com/arnavk23/GLoBES.jl/actions/workflows/Lint.yml?query=branch%3Amain)
-[![Docs workflow Status](https://github.com/arnavk23/GLoBES.jl/actions/workflows/Docs.yml/badge.svg?branch=main)](https://github.com/arnavk23/GLoBES.jl/actions/workflows/Docs.yml?query=branch%3Amain)
-
 A pure-Julia implementation of [GLoBES](https://www.mpi-hd.mpg.de/personalhomes/globes/), the General Long Baseline Experiment Simulator.
 GLoBES.jl simulates long-baseline and reactor neutrino oscillation experiments described in the Abstract Experiment Definition Language (AEDL), computes event rates, and evaluates Δχ² functions with systematics, parameter correlations and degeneracies.
 It reads the same AEDL files as GLoBES 3.0, and the correlated systematics (`sys` groups, `chiMultiExp`) and tables of any length of GLoBES 3.2, so the [DUNE configuration](examples/DUNE) works.
