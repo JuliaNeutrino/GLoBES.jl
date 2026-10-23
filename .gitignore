@@ -12,3 +12,6 @@ gl-*.dat
 # Compiled reference generator
 test/reference/a.out
 docs/src/assets/globes-jl-manual.pdf
+# Data tables (flux, cross sections, efficiencies, smearing) are not tracked
+*.dat
+*.txt
