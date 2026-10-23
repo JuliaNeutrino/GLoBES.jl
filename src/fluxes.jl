@@ -98,34 +98,36 @@ function builtin_flux_setup!(data::Flux, flx, pl)
     data.storage = st
 end
 
-# Read a whitespace-separated numeric table with `rows` rows and 7 columns,
-# skipping lines that start with '#'.
-function load_table(file_name, rows)
+# A flux or cross section table: rows of an energy and six columns. GLoBES
+# 3.0 needs 501 (flux) or 1001 (cross section) rows; like GLoBES 3.2, any
+# number of rows with increasing energies works.
+function load_table(file_name)
     path = glb_find_file(file_name)
-    st = zeros(rows, 7)
-    if path === nothing
-        glb_error("Could not open $file_name")
-        return st
-    end
-    vals = Float64[]
+    path === nothing && (glb_error("Could not open $file_name"); return zeros(0, 7))
+    rows = Vector{Float64}[]
     for line in eachline(path)
         s = lstrip(line)
         (isempty(s) || startswith(s, "#")) && continue
+        vals = Float64[]
         for tok in split(s)
             v = tryparse(Float64, tok)
             v === nothing && break
             push!(vals, v)
         end
-        length(vals) >= rows * 7 && break
+        length(vals) >= 7 && push!(rows, vals[1:7])
     end
-    if length(vals) < rows * 7
-        glb_error("Wrong format in file $file_name")
-    end
-    n = min(length(vals), rows * 7)
-    for k = 0:(n - 1)
-        st[k ÷ 7 + 1, k % 7 + 1] = vals[k + 1]
-    end
-    return st
+    length(rows) >= 2 && issorted(first.(rows); lt = <=) ||
+        (glb_error("Wrong format in file $file_name"); return zeros(0, 7))
+    return permutedims(reduce(hcat, rows))
+end
+
+# Linear interpolation in column `col` of a table, zero outside its energies
+function interpolate_table(st::Matrix{Float64}, x, col)
+    n = size(st, 1)
+    (n >= 2 && st[1, 1] <= x <= st[n, 1]) || return 0.0
+    k = min(searchsortedlast(view(st, :, 1), x), n - 1)
+    w = (x - st[k, 1]) / (st[k + 1, 1] - st[k, 1])
+    return st[k, col] + w * (st[k + 1, col] - st[k, col])
 end
 
 function glb_init_fluxtable!(data::Flux)
@@ -138,7 +140,7 @@ function glb_init_fluxtable!(data::Flux)
     elseif data.builtin == 4
         builtin_flux_setup!(data, bb_flux, -1)
     elseif data.builtin == 0 || data.builtin == GLB_OLD_NORM
-        data.storage = load_table(data.file_name, NFLUX + 1)
+        data.storage = load_table(data.file_name)
     end
 end
 
@@ -157,26 +159,12 @@ Flux of flavour `l` (1=e, 2=μ, 3=τ), `anti=+1/-1`, at energy `en` and the
 given baseline, including running time, power and normalization.
 """
 function glb_flux_calc(en, baseline, l, anti, data::Flux)
-    st = data.storage
-    part = flux_column(l, anti)
-    # The table has NFLUX + 1 equidistant energies (C GLoBES divides by
-    # NFLUX + 1, which evaluates the flux at 1.002 times the energy)
-    incre = (st[NFLUX + 1, 1] - st[1, 1]) / NFLUX
-    t = (en - st[1, 1]) / incre
-    isfinite(t) || return 0.0
-    lowerind = floor(Int, t)
-    higherind = lowerind + 1
-    res = 0.0
-    if !(lowerind < 0 || higherind > NFLUX)
-        lo = st[lowerind + 1, part]
-        hi = st[higherind + 1, part]
-        res = ((hi - lo) * (((en - st[1, 1]) / incre) - lowerind) + lo) / baseline / baseline
-    end
+    res = interpolate_table(data.storage, en, flux_column(l, anti)) / baseline / baseline
     return res * norm2(data.builtin) * data.time * data.target_power * data.stored_muons * data.norm
 end
 
 function glb_init_xsectable!(data::XSec)
-    data.builtin == 0 && (data.storage = load_table(data.file_name, 1001))
+    data.builtin == 0 && (data.storage = load_table(data.file_name))
 end
 
 """
@@ -185,19 +173,7 @@ end
 Total cross section (1e-38 cm²) for flavour `l` and `anti=±1` at energy `en`.
 """
 function glb_xsec_calc(enl, l, anti, data::XSec)
-    st = data.storage
-    en = log10(enl)
     part = l + 3 * (1 - anti) ÷ 2 + 1
-    incre = (st[1001, 1] - st[1, 1]) / 1000.0
-    t = (en - st[1, 1]) / incre
-    isfinite(t) || return 0.0
-    lowerind = floor(Int, t)
-    higherind = lowerind + 1
-    res = 0.0
-    if !(lowerind < 0 || higherind > 1000)
-        lo = st[lowerind + 1, part]
-        hi = st[higherind + 1, part]
-        res = (hi - lo) * (((en - st[1, 1]) / incre) - lowerind) + lo
-    end
+    res = interpolate_table(data.storage, log10(enl), part)
     return res * enl
 end

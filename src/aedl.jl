@@ -162,7 +162,7 @@ end
 #  Parser state
 # ---------------------------------------------------------------------------
 
-const GROUP_NAMES = ("rule", "channel", "energy", "cross", "flux", "nuflux")
+const GROUP_NAMES = ("rule", "channel", "energy", "cross", "flux", "nuflux", "sys")
 
 mutable struct AEDLParser
     toks::Vector{Token}
@@ -213,7 +213,8 @@ function reset_parser_tables!(p::AEDLParser)
     for k in keys(SIGMA_FUNCTIONS)
         p.names[k] = ("energy", -1)
     end
-    p.counters = Dict("rule" => 0, "channel" => 0, "energy" => 0, "cross" => 0, "flux" => 0)
+    p.counters =
+        Dict("rule" => 0, "channel" => 0, "energy" => 0, "cross" => 0, "flux" => 0, "sys" => 0)
     p.exp = ExperimentData()
     p.exp.filename = p.filename
     p.context = "global"
@@ -724,6 +725,30 @@ function check_range(p, name, v, lo, hi)
     return v
 end
 
+# The name of the k-th sys group
+sys_name(p::AEDLParser, k) = first(n for (n, (ctx, v)) in p.names if ctx == "sys" && v == k)
+
+# {#err1, #err2} : {#err3} : {} — the sys errors of each channel of a rule
+function parse_sys_lists(p::AEDLParser)
+    lists = Vector{String}[]
+    while true
+        expect_op!(p, "{")
+        names = String[]
+        while !isop(peek(p), "}")
+            t = advance!(p)
+            t.kind == :hash || perr(p, "Expected #name of a sys group", t)
+            ctx, _ = get(p.names, t.text, ("", 0))
+            ctx == "sys" || perr(p, "$(t.text) is not a sys group", t)
+            push!(names, t.text)
+            isop(peek(p), ",") && advance!(p)
+        end
+        advance!(p)
+        push!(lists, names)
+        isop(peek(p), ":") || return lists
+        advance!(p)
+    end
+end
+
 aslist(p, v::Float64) = [v]
 aslist(p, v::Vector{Float64}) = copy(v)
 aslist(p, v) = perr(p, "Expected a list")
@@ -900,6 +925,10 @@ function parse_local!(p::AEDLParser, t::Token)
             r.sys_on_errors = aslist(p, parse_rhs(p))
         elseif name == "@sys_off_errors"
             r.sys_off_errors = aslist(p, parse_rhs(p))
+        elseif name == "@sys_on_multiex_errors_sig"
+            r.multiex_sig = parse_sys_lists(p)
+        elseif name == "@sys_on_multiex_errors_bg"
+            r.multiex_bg = parse_sys_lists(p)
         elseif name == "@errordim_sys_on"
             r.errordim_sys_on = Int(check_range(p, name, asnum(p, parse_rhs(p)), 0, 20))
         elseif name == "@errordim_sys_off"
@@ -907,6 +936,10 @@ function parse_local!(p::AEDLParser, t::Token)
         else
             perr(p, "Unknown identifier $name", t)
         end
+    elseif ctx == "sys"
+        name == "@error" ||
+            perr(p, "Unknown identifier $name in a sys group (only @error is supported)", t)
+        e.sys_errors[sys_name(p, k)] = check_range(p, name, asnum(p, parse_rhs(p)), 0, Inf)
     elseif ctx == "channel"
         if name == "@channel"
             fl = name_value(p)
