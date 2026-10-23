@@ -1,4 +1,4 @@
-# A reader for the subset of the Wolfram language used in SARAH model files:
+# A reader for the subset of the Wolfram language used in model files:
 # assignments, lists, rules, function calls f[x], parts x[[i]], strings,
 # numbers, + - * / ^, the non-commutative product `.` and comments (* *).
 #
@@ -9,7 +9,7 @@
 """
     MExpr(head, args)
 
-A Wolfram-language expression `head[args...]` read from a SARAH model file.
+A Wolfram-language expression `head[args...]` read from a model file.
 """
 struct MExpr
     head::Any
@@ -51,7 +51,7 @@ struct MToken
     space::Bool           # whitespace separates it from the previous token
 end
 
-# Named characters that SARAH files use as operators or letters
+# Named characters that model files use as operators or letters
 const NAMED_CHARACTERS = Dict(
     "RightArrow" => "->",
     "Rule" => "->",

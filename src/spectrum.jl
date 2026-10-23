@@ -2,13 +2,13 @@
 # parameter values in LesHouches files.
 
 # ---------------------------------------------------------------------------
-#  Numerical values of SARAH expressions
+#  Numerical values of model-file expressions
 # ---------------------------------------------------------------------------
 
 """
     evaluate(expr, values) -> Number or Array
 
-Numerical value of a SARAH expression, with the symbols taken from `values`
+Numerical value of an expression of a model file, with the symbols taken from `values`
 (a `Dict` or named tuple). `I`, `Pi`, `Sqrt`, `Exp`, `Log`, `Sin`, `Cos`,
 `Conjugate` and `conj` are known.
 """
@@ -224,11 +224,11 @@ end
 Tree-level masses of the scalars after electroweak symmetry breaking (from
 the potential in the Lagrangian and `DEFINITION[EWSB][VEVs]`) and of the
 gauge-singlet Majorana fermions. `values` holds the numerical parameters,
-by their SARAH names. The parameters in `tadpoles` (by default SARAH's
+by their names in the model file. The parameters in `tadpoles` (by default the model's
 `ParametersToSolveTadpoles`) are solved from the minimum conditions.
 
 ```julia
-values = Dict(:v => 246.22, :lambda1 => 0.26, :lambda2 => 0.1, :lambda3 => 0.2, :lambda4 => -0.1, :lambda5 => 1e-9, :mEt2 => 1e6, :Mn => Diagonal([1e3, 2e3, 3e3]))   # parameters by SARAH name, in GeV
+values = Dict(:v => 246.22, :lambda1 => 0.26, :lambda2 => 0.1, :lambda3 => 0.2, :lambda4 => -0.1, :lambda5 => 1e-9, :mEt2 => 1e6, :Mn => Diagonal([1e3, 2e3, 3e3]))   # parameters by name, in GeV
 s = spectrum(scoto, values; tadpoles = [:mH2])   # model, values, parameters fixed by the minimum conditions
 s.scalars, s.fermions, s.tadpoles   # masses in GeV and the solved parameters
 ```
@@ -341,7 +341,7 @@ Parameter values from a LesHouches file, at the positions that
 from `MINPAR` through `BoundaryLowScaleInput` of `SPheno.m`.
 
 ```julia
-values = leshouches_values(scoto, "LesHouches.in")   # model, LesHouches file: parameter values by SARAH name
+values = leshouches_values(scoto, "LesHouches.in")   # model, LesHouches file: parameter values by name
 ```
 """
 function leshouches_values(m::BSMModel, file::AbstractString)
@@ -386,7 +386,7 @@ Write parameter values to a LesHouches input file in the blocks of
 [`leshouches_values`](@ref).
 
 ```julia
-write_leshouches("LesHouches.in", scoto, values)   # file, model, parameter values by SARAH name
+write_leshouches("LesHouches.in", scoto, values)   # file, model, parameter values by name
 ```
 """
 function write_leshouches(file::AbstractString, m::BSMModel, values)

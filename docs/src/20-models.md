@@ -1,6 +1,6 @@
 # [Oscillation models](@id oscillation-models)
 
-Like SARAH for particle models, GLoBES.jl reads oscillation models from files.
+GLoBES.jl reads oscillation models from Mathematica-style files.
 The effective Hamiltonian is the vacuum Hamiltonian plus additional terms; each ingredient is one assignment and takes its default when it is left out.
 
 ## Files
@@ -18,7 +18,7 @@ MyModel/
 
 ## Model files
 
-Model files are written like SARAH model files: one assignment per ingredient, with a comment that explains each entry.
+Model files have one assignment per ingredient, with a comment that explains each entry.
 
 ```mathematica
 Model`Name = "MyModel";                                             (* name, NameLaTeX, Authors, Date *)
@@ -57,7 +57,7 @@ Matter eigenstates are numbered like the vacuum states they evolve into as the d
 
 ## Run files
 
-`Run.m` is written like SARAH's `SPheno.m`: settings, then entries `{name, {options}}` that run in the order of the file.
+`Run.m` has settings, then entries `{name, {options}}` that run in the order of the file.
 
 ```mathematica
 L = 1300 km;

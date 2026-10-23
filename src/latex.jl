@@ -573,7 +573,7 @@ function latex_parameters(m::OscillationModel)
 end
 
 # ---------------------------------------------------------------------------
-#  Particle models (SARAH)
+#  Particle models
 # ---------------------------------------------------------------------------
 
 function bsm_latex_names(m::BSMModel)

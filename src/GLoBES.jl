@@ -261,7 +261,7 @@ include("minimize.jl")
 include("api.jl")
 include("highlevel.jl")
 include("mathematica.jl")
-include("sarah.jl")
+include("particlemodel.jl")
 include("spectrum.jl")
 include("mechanisms.jl")
 include("newphysics.jl")
@@ -373,7 +373,7 @@ export Setup,
 
 # Models, NuFIT, reports
 export BSMModel,
-    load_sarah,
+    load_particle_model,
     check_model,
     add_gauge!,
     add_global!,

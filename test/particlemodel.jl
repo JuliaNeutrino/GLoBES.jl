@@ -1,4 +1,4 @@
-# Particle models in SARAH's format: reading, symmetry checks and the
+# Particle models from model files: reading, symmetry checks and the
 # tree-level spectrum
 
 const SCOTOGENIC = """
@@ -34,7 +34,7 @@ DEFINITION[EWSB][VEVs] = {
 
 function scotogenic_model(extra = "")
     m = BSMModel("Scotogenic")
-    GLoBES.read_sarah_string!(m, SCOTOGENIC * extra)
+    GLoBES.read_particle_string!(m, SCOTOGENIC * extra)
     return m
 end
 
@@ -49,7 +49,7 @@ const SCOTO_VALUES = Dict{Symbol, Any}(
     :Mn => Diagonal([1e3, 2e3, 3e3]),
 )
 
-@testset "SARAH models" begin
+@testset "particle models" begin
     m = scotogenic_model()
     @test m.name == "Scotogenic"
     @test length(m.fields) == 8 && length(m.gauge) == 3
