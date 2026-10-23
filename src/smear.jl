@@ -44,12 +44,12 @@ function default_smear!(sd::SmearData, exp::ExperimentData)
     sd.type == -1 && (exp_error(exp, "Smearing type has not been defined!"); s = -1)
     sd.numofbins <= 0 && (exp_error(exp, "Number of bins must be positive!"); s = -1)
     sd.e_min == -1 && (exp_error(exp, "No minimal energy defined!"); s = -1)
-    sd.e_min <= 0 && (exp_error(exp, "Minimal energy must be positive!"); s = -1)
+    sd.e_min < 0 && (exp_error(exp, "Minimal energy must not be negative!"); s = -1)
     sd.e_max == -1 && (exp_error(exp, "No maximal energy defined!"); s = -1)
     sd.e_max <= sd.e_min &&
         (glb_error("Maximal energy must be larger than the minimal energy!"); s = -1)
     if sd.e_sim_min != -1 || sd.e_sim_max != -1
-        sd.e_sim_min <= 0 && (exp_error(exp, "Minimal sim energy must be positive!"); s = -1)
+        sd.e_sim_min < 0 && (exp_error(exp, "Minimal sim energy must not be negative!"); s = -1)
         sd.e_sim_max <= sd.e_sim_min && (
             exp_error(exp, "Maximal sim energy must be larger than the minimal sim energy!");
             s = -1

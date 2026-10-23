@@ -1,5 +1,5 @@
-# Vendored AEDL files, NuFIT tables and data tables, the C patch and generated figure data stay byte for byte
-exclude: "^(test/data/|data/nufit/.*\\.txt$|test/reference/c-fixes\\.patch$|examples/.*\\.(glb|dat)$|docs/manual/figures/data/)"
+# Vendored AEDL files (and the DUNE configuration), NuFIT tables and data tables, the C patch and generated figure data stay byte for byte
+exclude: "^(test/data/|data/nufit/.*\\.txt$|test/reference/c-fixes\\.patch$|examples/.*\\.(glb|dat)$|examples/DUNE/(?!README)|docs/manual/figures/data/)"
 repos:
   - repo: local
     hooks:

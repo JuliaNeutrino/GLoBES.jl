@@ -111,6 +111,10 @@ mutable struct Rule
     energy_window_bins::Vector{Int}    # [low, high], 1-based inclusive
     errordim_sys_on::Int
     errordim_sys_off::Int
+    # GLoBES 3.2 correlated systematics (chiMultiExp): for each signal and
+    # background channel, the names of the sys(#name) errors that scale it
+    multiex_sig::Vector{Vector{String}}
+    multiex_bg::Vector{Vector{String}}
 end
 Rule() = Rule(
     Float64[],
@@ -135,6 +139,8 @@ Rule() = Rule(
     [-1, -1],
     -1,
     -1,
+    Vector{String}[],
+    Vector{String}[],
 )
 
 """
@@ -203,6 +209,7 @@ mutable struct ExperimentData
     rates0::Vector{Vector{Float64}}
     rates1::Vector{Vector{Float64}}
     rates1BG::Vector{Vector{Float64}}
+    sys_errors::Dict{String, Float64}         # sys(#name) of GLoBES 3.2: name => 1σ error
 end
 
 function ExperimentData()
@@ -250,6 +257,7 @@ function ExperimentData()
         Vector{Float64}[],
         Vector{Float64}[],
         Vector{Float64}[],
+        Dict{String, Float64}(),
     )
 end
 

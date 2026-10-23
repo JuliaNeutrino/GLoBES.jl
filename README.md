@@ -10,7 +10,7 @@
 
 A pure-Julia implementation of [GLoBES](https://www.mpi-hd.mpg.de/personalhomes/globes/), the General Long Baseline Experiment Simulator.
 GLoBES.jl simulates long-baseline and reactor neutrino oscillation experiments described in the Abstract Experiment Definition Language (AEDL), computes event rates, and evaluates Δχ² functions with systematics, parameter correlations and degeneracies.
-It reads the same AEDL files as GLoBES 3.0.
+It reads the same AEDL files as GLoBES 3.0, and the correlated systematics (`sys` groups, `chiMultiExp`) and tables of any length of GLoBES 3.2, so the [DUNE configuration](examples/DUNE) works.
 
 GLoBES.jl offers two interfaces:
 
