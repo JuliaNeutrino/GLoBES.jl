@@ -1,6 +1,6 @@
 # Tutorial
 
-This tutorial follows [`examples/tour.jl`](https://github.com/arnavk23/GLoBES.jl/blob/main/examples/tour.jl), a translation of the tour of the C GLoBES manual.
+This tutorial follows [`examples/tour.jl`](https://github.com/JuliaNeutrino/GLoBES.jl/blob/main/examples/tour.jl), a translation of the tour of the C GLoBES manual.
 Run it from the `examples` directory, where the AEDL file `NFstandard.glb` and its data files are.
 
 ## Parameters and simulated data

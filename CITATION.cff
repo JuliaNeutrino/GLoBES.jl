@@ -6,8 +6,8 @@ authors:
     given-names: Arnav
     orcid: "https://orcid.org/0009-0007-9818-7908"
 version: "0.1.0"
-repository-code: "https://github.com/arnavk23/GLoBES.jl"
-url: "https://arnavk23.github.io/GLoBES.jl/stable"
+repository-code: "https://github.com/JuliaNeutrino/GLoBES.jl"
+url: "https://julianeutrino.github.io/GLoBES.jl/stable"
 license: GPL-2.0-or-later
 abstract: >
   A pure-Julia implementation of GLoBES, the General Long Baseline Experiment
