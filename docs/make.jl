@@ -67,10 +67,10 @@ cp(
 makedocs(;
     modules = [GLoBES],
     authors = "Arnav Kapoor <kapoorarnav43@gmail.com>",
-    repo = "https://github.com/arnavk23/GLoBES.jl/blob/{commit}{path}#{line}",
+    repo = "https://github.com/JuliaNeutrino/GLoBES.jl/blob/{commit}{path}#{line}",
     sitename = "GLoBES.jl",
     format = Documenter.HTML(;
-        canonical = "https://arnavk23.github.io/GLoBES.jl",
+        canonical = "https://julianeutrino.github.io/GLoBES.jl",
         assets = ["assets/style.css"],
         # the API reference is one page with every docstring
         size_threshold = 400 * 2^10,
@@ -78,4 +78,4 @@ makedocs(;
     pages = list_pages(),
 )
 
-deploydocs(; repo = "github.com/arnavk23/GLoBES.jl", push_preview = true, devbranch = "main")
+deploydocs(; repo = "github.com/JuliaNeutrino/GLoBES.jl", push_preview = true, devbranch = "main")

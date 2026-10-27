@@ -15,7 +15,7 @@ GLoBES.jl simulates long-baseline and reactor neutrino oscillation experiments d
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/arnavk23/GLoBES.jl")
+Pkg.add(url = "https://github.com/JuliaNeutrino/GLoBES.jl")
 ```
 
 ## Conventions
