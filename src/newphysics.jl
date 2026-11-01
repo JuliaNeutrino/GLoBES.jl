@@ -63,9 +63,10 @@ end
     PropagationBlock
 
 A modification of neutrino propagation. Combine blocks with
-[`NewPhysics`](@ref). [`ScalarNSI`](@ref), [`MatterNSI`](@ref) and
-[`Decoherence`](@ref) are blocks; a package defines its own with a subtype
-and these methods:
+[`NewPhysics`](@ref). The packages NeutrinoScalarNSI.jl (`ScalarNSI`),
+NeutrinoVectorNSI.jl (`VectorNSI`) and NeutrinoDecoherence.jl
+(`Decoherence`) provide blocks; a package defines its own with a subtype and
+these methods:
 
 | Method | Default | Meaning |
 | --- | --- | --- |
@@ -156,6 +157,14 @@ coupling_parameters(pairs, modulus, phase) = [
     n in (a == c ? (modulus,) : (modulus, phase))
 ]
 
+block_parameters(b::ScalarNSI) = coupling_parameters(b.pairs, :η, :δ)
+parameter_aliases(b::ScalarNSI) = coupling_aliases(b.pairs, :η, :δ, :eta, :delta)
+uses_absolute_masses(::ScalarNSI) = true
+mass_correction!(δM, b::ScalarNSI, p, x) =
+    add_couplings!(δM, b.pairs, x, :η, :δ, b.scale === :Δm31 ? sqrt(abs(p.Δm31)) : b.scale)
+Base.show(io::IO, b::ScalarNSI) =
+    print(io, "ScalarNSI(", join((pair_label(p...) for p in b.pairs), ", "), ")")
+
 """
     GLoBES.coupling_aliases(pairs, modulus, phase, ascii_modulus, ascii_phase) -> Vector{Pair}
 
@@ -171,6 +180,12 @@ coupling_aliases(pairs, modulus, phase, ascii_modulus, ascii_phase) = [
     (a, c) in pairs for (m, n) in
     (a == c ? ((ascii_modulus, modulus),) : ((ascii_modulus, modulus), (ascii_phase, phase)))
 ]
+
+block_parameters(b::MatterNSI) = coupling_parameters(b.pairs, :ε, :δε)
+parameter_aliases(b::MatterNSI) = coupling_aliases(b.pairs, :ε, :δε, :eps, :deltaeps)
+matter_correction!(ε, b::MatterNSI, p, x) = add_couplings!(ε, b.pairs, x, :ε, :δε)
+Base.show(io::IO, b::MatterNSI) =
+    print(io, "MatterNSI(", join((pair_label(p...) for p in b.pairs), ", "), ")")
 
 """
     GLoBES.add_couplings!(A, pairs, x, modulus, phase, scale=1) -> A
@@ -196,91 +211,6 @@ function add_couplings!(A, pairs, x, modulus, phase, scale = 1.0)
     return A
 end
 
-"""
-    ScalarNSI(couplings...; scale=:Δm31)
-
-Scalar non-standard interactions: a correction δM to the neutrino mass
-matrix, δM_αβ = s |η_αβ| e^{iδ_αβ} (Hermitian), with s = √|Δm²31| (the
-convention of Ge and Parke, arXiv:1812.08376, and Medhi et al.) or a fixed
-scale in eV. Couplings are flavour pairs (`:ee`, `:eμ`, `:eτ`, `:μμ`, `:μτ`,
-`:ττ`, or ASCII `:emu`, ...; all six by default). Parameters: `η_αβ` and,
-off the diagonal, the phase `δ_αβ`.
-
-Scalar NSI depend on the absolute neutrino masses: the parameter
-`m_lightest` (eV, default 0) is the lightest mass.
-
-```julia
-ScalarNSI(:eτ)   # one coupling: parameters η_eτ and δ_eτ
-ScalarNSI(:ee, :eμ; scale = 0.05)   # couplings; δM in units of 0.05 eV instead of √|Δm²31|
-ScalarNSI()   # all six couplings
-```
-"""
-struct ScalarNSI <: PropagationBlock
-    pairs::Vector{Tuple{Int, Int}}
-    scale::Union{Symbol, Float64}
-    ScalarNSI(couplings...; scale = :Δm31) =
-        new(flavour_pairs(couplings), scale isa Symbol ? scale : Float64(scale))
-end
-
-block_parameters(b::ScalarNSI) = coupling_parameters(b.pairs, :η, :δ)
-parameter_aliases(b::ScalarNSI) = coupling_aliases(b.pairs, :η, :δ, :eta, :delta)
-uses_absolute_masses(::ScalarNSI) = true
-mass_correction!(δM, b::ScalarNSI, p, x) =
-    add_couplings!(δM, b.pairs, x, :η, :δ, b.scale === :Δm31 ? sqrt(abs(p.Δm31)) : b.scale)
-Base.show(io::IO, b::ScalarNSI) =
-    print(io, "ScalarNSI(", join((pair_label(p...) for p in b.pairs), ", "), ")")
-
-"""
-    MatterNSI(couplings...)
-
-Neutral-current (vector) non-standard interactions with matter, H ∋ V ε,
-in units of the standard matter potential V = √2 G_F N_e. Parameters
-`ε_αβ` and, off the diagonal, the phase `δε_αβ`.
-
-```julia
-MatterNSI(:ee, :eτ)   # couplings: parameters ε_ee, ε_eτ and δε_eτ
-```
-"""
-struct MatterNSI <: PropagationBlock
-    pairs::Vector{Tuple{Int, Int}}
-    MatterNSI(couplings...) = new(flavour_pairs(couplings))
-end
-
-block_parameters(b::MatterNSI) = coupling_parameters(b.pairs, :ε, :δε)
-parameter_aliases(b::MatterNSI) = coupling_aliases(b.pairs, :ε, :δε, :eps, :deltaeps)
-matter_correction!(ε, b::MatterNSI, p, x) = add_couplings!(ε, b.pairs, x, :ε, :δε)
-Base.show(io::IO, b::MatterNSI) =
-    print(io, "MatterNSI(", join((pair_label(p...) for p in b.pairs), ", "), ")")
-
-"""
-    Decoherence(; n=0, E0=1.0, pairs=false)
-
-Quantum decoherence: the coherence between the propagation eigenstates i, j
-decays as exp(-Γ_ij (E/E₀)ⁿ L), with Γ in GeV and E₀ in GeV. One parameter
-`Γ` for all pairs, or `Γ21`, `Γ31`, `Γ32` with `pairs=true` (the eigenstates
-of the Hamiltonian in matter, numbered by increasing eigenvalue).
-
-```julia
-Decoherence()   # one Γ for all pairs, independent of the energy
-Decoherence(n = 2, pairs = true)   # Γ21, Γ31 and Γ32, times (E/E0)² with E0 = 1 GeV
-```
-"""
-Base.@kwdef struct Decoherence <: PropagationBlock
-    n::Float64 = 0.0
-    E0::Float64 = 1.0
-    pairs::Bool = false
-end
-
-block_parameters(b::Decoherence) = b.pairs ? [:Γ21, :Γ31, :Γ32] : [:Γ]
-parameter_aliases(b::Decoherence) =
-    b.pairs ? [:Gamma21 => :Γ21, :Gamma31 => :Γ31, :Gamma32 => :Γ32] : [:Gamma => :Γ]
-damps(::Decoherence) = true
-function damping_rates(b::Decoherence, p, x, E)
-    f = (E / b.E0)^b.n
-    return b.pairs ? (f * x[:Γ21], f * x[:Γ31], f * x[:Γ32]) : ntuple(_ -> f * x[:Γ], 3)
-end
-Base.show(io::IO, b::Decoherence) = print(io, "Decoherence(n=$(b.n)$(b.pairs ? ", per pair" : ""))")
-
 # ASCII names of the usual new-physics parameters, accepted wherever
 # parameters are named (also in model files)
 for (ascii, name) in (
@@ -303,6 +233,7 @@ as the probability engine with [`use_model!`](@ref) and make parameters with
 `OscParams(model; ...)`:
 
 ```julia
+using NeutrinoScalarNSI, NeutrinoDecoherence   # packages with blocks
 model = NewPhysics(ScalarNSI(:eτ), Decoherence(n = 0))   # blocks of new physics
 use_model!(model)   # the probability engine from now on
 nsi = OscParams(model, nufit_params("6.1"); η_eτ = 0.1, Γ = 1e-23)   # model, standard parameters, new-physics parameters
@@ -518,7 +449,7 @@ Use the oscillation probabilities of `model` from now on (in `setup`), for
 all experiments. `standard_engine!` switches back (see [`probability_engine!`](@ref)).
 
 ```julia
-use_model!(NewPhysics(MatterNSI(:eτ)))   # model: its probabilities for all experiments of the setup
+use_model!(NewPhysics(VectorNSI(:eτ)))   # model (VectorNSI from NeutrinoVectorNSI.jl): its probabilities for all experiments of the setup
 use_model!(load_model("examples/models/SNSI"))   # a model from files
 standard_engine!()   # back to the standard engine
 ```
