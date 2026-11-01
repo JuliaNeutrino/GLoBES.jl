@@ -157,14 +157,6 @@ coupling_parameters(pairs, modulus, phase) = [
     n in (a == c ? (modulus,) : (modulus, phase))
 ]
 
-block_parameters(b::ScalarNSI) = coupling_parameters(b.pairs, :η, :δ)
-parameter_aliases(b::ScalarNSI) = coupling_aliases(b.pairs, :η, :δ, :eta, :delta)
-uses_absolute_masses(::ScalarNSI) = true
-mass_correction!(δM, b::ScalarNSI, p, x) =
-    add_couplings!(δM, b.pairs, x, :η, :δ, b.scale === :Δm31 ? sqrt(abs(p.Δm31)) : b.scale)
-Base.show(io::IO, b::ScalarNSI) =
-    print(io, "ScalarNSI(", join((pair_label(p...) for p in b.pairs), ", "), ")")
-
 """
     GLoBES.coupling_aliases(pairs, modulus, phase, ascii_modulus, ascii_phase) -> Vector{Pair}
 
@@ -180,12 +172,6 @@ coupling_aliases(pairs, modulus, phase, ascii_modulus, ascii_phase) = [
     (a, c) in pairs for (m, n) in
     (a == c ? ((ascii_modulus, modulus),) : ((ascii_modulus, modulus), (ascii_phase, phase)))
 ]
-
-block_parameters(b::MatterNSI) = coupling_parameters(b.pairs, :ε, :δε)
-parameter_aliases(b::MatterNSI) = coupling_aliases(b.pairs, :ε, :δε, :eps, :deltaeps)
-matter_correction!(ε, b::MatterNSI, p, x) = add_couplings!(ε, b.pairs, x, :ε, :δε)
-Base.show(io::IO, b::MatterNSI) =
-    print(io, "MatterNSI(", join((pair_label(p...) for p in b.pairs), ", "), ")")
 
 """
     GLoBES.add_couplings!(A, pairs, x, modulus, phase, scale=1) -> A
