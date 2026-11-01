@@ -2,6 +2,31 @@
 
 const MODELS = joinpath(@__DIR__, "..", "examples", "models")
 
+# P(μ → e), P(μ → μ) of the C engine of SNSI-Decoherence-DUNE (reference/snsi_reference_driver.c): config, sign of CP, E, P_μe, P_μμ
+const SNSI_REFERENCE = [
+    parse.(Float64, split(l)) for
+    l in eachline(joinpath(@__DIR__, "reference", "snsi_c_reference.txt")) if !startswith(l, "#")
+]
+
+snsi_base(config) =
+    config < 3 ?
+    OscParams(
+        θ12 = asin(sqrt(0.3088)),
+        θ13 = asin(sqrt(0.02249)),
+        θ23 = asin(sqrt(0.470)),
+        δ = deg2rad(207),
+        Δm21 = 7.537e-5,
+        Δm31 = 2.521e-3,
+    ) :
+    OscParams(
+        θ12 = asin(sqrt(0.3088)),
+        θ13 = asin(sqrt(0.02261)),
+        θ23 = asin(sqrt(0.555)),
+        δ = deg2rad(283),
+        Δm21 = 7.537e-5,
+        Δm31 = -2.5e-3 + 7.537e-5,
+    )
+
 @testset "oscillation models" begin
     # The standard model: every block from the defaults
     std = load_model()
