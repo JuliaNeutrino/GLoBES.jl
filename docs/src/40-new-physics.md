@@ -21,7 +21,7 @@ For other Hamiltonians, write a model file (see [Oscillation models](@ref oscill
 
 ## Writing a block
 
-A package adds its own block by subtyping [`PropagationBlock`](@ref) and defining the methods of the interface; it then combines with the other blocks in `NewPhysics`:
+A package adds its own block by subtyping [`PropagationBlock`](@ref GLoBES.PropagationBlock) and defining the methods of the interface; it then combines with the other blocks in `NewPhysics`:
 
 ```julia
 using GLoBES
@@ -34,4 +34,4 @@ GLoBES.matter_correction!(ε, ::ElectronShift, p, x) = (ε[1, 1] += x[:Δε]; ε
 model = NewPhysics(ElectronShift())   # or with other blocks: NewPhysics(ElectronShift(), Decoherence())
 ```
 
-Blocks change the Hamiltonian through `mass_correction!` (with `uses_absolute_masses`) and `matter_correction!`, and damp coherences through `damps` and `damping_rates`; see [`PropagationBlock`](@ref) for the full list.
+Blocks change the Hamiltonian through `mass_correction!` (with `uses_absolute_masses`) and `matter_correction!`, and damp coherences through `damps` and `damping_rates`; see [`PropagationBlock`](@ref GLoBES.PropagationBlock) for the full list.
