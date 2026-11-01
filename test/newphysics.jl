@@ -73,3 +73,41 @@ snsi_base(config) =
     @test probability(d, :μ, :e; E = [1.0], L = 1300, ρ = 0.0)[1] ≈ average rtol = 1e-6
     standard_engine!()
 end
+
+# A block defined outside GLoBES, through the PropagationBlock interface
+struct TestMatterShift <: GLoBES.PropagationBlock end
+GLoBES.block_parameters(::TestMatterShift) = [:Δε_test]
+GLoBES.parameter_aliases(::TestMatterShift) = [:deps_test => :Δε_test]
+GLoBES.matter_correction!(ε, ::TestMatterShift, p, x) = (ε[1, 1] += x[:Δε_test]; ε)
+
+struct TestDamping <: GLoBES.PropagationBlock end
+GLoBES.block_parameters(::TestDamping) = [:Γ_test]
+GLoBES.damps(::TestDamping) = true
+GLoBES.damping_rates(::TestDamping, p, x, E) = ntuple(_ -> x[:Γ_test], 3)
+
+@testset "propagation block interface" begin
+    p = nufit_params("6.1")
+    E = [0.5, 1.0, 2.5, 5.0]
+
+    # A user block gives the same as the built-in one, also in combination
+    user = NewPhysics(TestMatterShift(), TestDamping(), ScalarNSI(:eτ))
+    builtin = NewPhysics(MatterNSI(:ee), Decoherence(), ScalarNSI(:eτ))
+    q = OscParams(user, p; deps_test = 0.3, Γ_test = 1e-23, η_eτ = 0.1)
+    use_model!(user)
+    P_user = probability(q, :μ, :e; E, L = 1300, ρ = 2.848)
+    use_model!(builtin)
+    P_builtin = probability(
+        OscParams(builtin, p; ε_ee = 0.3, Γ = 1e-23, η_eτ = 0.1),
+        :μ,
+        :e;
+        E,
+        L = 1300,
+        ρ = 2.848,
+    )
+    @test P_user ≈ P_builtin rtol = 1e-12
+    @test q.Δε_test == 0.3
+    standard_engine!()
+
+    @test_throws ArgumentError NewPhysics(MatterNSI(:ee), MatterNSI(:ee))
+    @test sprint(show, builtin) == "NewPhysics(MatterNSI(ee), Decoherence(n=0.0), ScalarNSI(eτ))"
+end

@@ -17,3 +17,20 @@ probability(p, :μ, :e; E = 2.5, L = 1300, ρ = 2.848)
 
 The scalar NSI and decoherence agree with the C engine of the SNSI-decoherence DUNE study to 10⁻¹² (see `test/reference`, built with CODATA constants).
 For other Hamiltonians, write a model file (see [Oscillation models](@ref oscillation-models)).
+
+## Writing a block
+
+A package adds its own block by subtyping [`PropagationBlock`](@ref) and defining the methods of the interface; it then combines with the other blocks in `NewPhysics`:
+
+```julia
+using GLoBES
+
+struct ElectronShift <: GLoBES.PropagationBlock end
+GLoBES.block_parameters(::ElectronShift) = [:Δε]
+GLoBES.parameter_aliases(::ElectronShift) = [:deps => :Δε]
+GLoBES.matter_correction!(ε, ::ElectronShift, p, x) = (ε[1, 1] += x[:Δε]; ε)
+
+model = NewPhysics(ElectronShift(), Decoherence())
+```
+
+Blocks change the Hamiltonian through `mass_correction!` (with `uses_absolute_masses`) and `matter_correction!`, and damp coherences through `damps` and `damping_rates`; see [`PropagationBlock`](@ref) for the full list.
