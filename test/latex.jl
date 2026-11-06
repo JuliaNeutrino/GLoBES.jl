@@ -11,6 +11,10 @@
     @test tex("Exp[I d]") == "e^{i d}"
     @test GLoBES.latex_number(2.5e-5) == "2.5 \\times 10^{-5}"
     @test GLoBES.latex_number(0.3088) == "0.3088"
+    # the exponent is that of the rounded value
+    @test GLoBES.latex_number(0.000999999999) == "0.001"
+    @test GLoBES.latex_number(9.99996e-5) == "10^{-4}"
+    @test GLoBES.latex_number(99999.7) == "10^{5}"
 
     m = load_model(joinpath(MODELS, "SNSI"))
     s = latex(m)
