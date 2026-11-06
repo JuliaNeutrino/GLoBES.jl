@@ -198,7 +198,8 @@ escape_latex(s::AbstractString) =
 function latex_number(x::Real; digits = 4)
     x == 0 && return "0"
     isinteger(x) && abs(x) < 1e6 && return string(Int(x))
-    e = floor(Int, log10(abs(x)))
+    # The exponent of the rounded value: 0.00099999 is 0.001, not 10 × 10^{-4}
+    e = floor(Int, log10(abs(round(x; sigdigits = digits))))
     if -3 <= e <= 4
         return @sprintf("%.*g", digits, x)
     end
